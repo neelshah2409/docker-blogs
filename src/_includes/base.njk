@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ title or "Daily Dev Notes" }}</title>
+<meta name="description" content="{{ description or 'Daily notes on AI agents, infrastructure, and developer tooling.' }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #9437FF; --purple-deep: #6B21C9; --pink: #F73DF1; --blue: #3FD9FB;
+    --ink: #171321; --ink-soft: #4a4658; --ink-dim: #7d7a89;
+    --line: #ECE7F5; --surface: #FFFFFF; --surface-tint: #FAF8FE;
+    --radius-lg: 20px; --radius: 16px;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", "SF Mono", Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0; font-family: var(--sans); color: var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(148,55,255,0.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(247,61,241,0.05), transparent 60%),
+      var(--surface);
+    line-height: 1.55; letter-spacing: -0.01em; -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--purple-deep); text-decoration:none; }
+  a:hover{ color: var(--pink); }
+  .page{ max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+  .site-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:44px; }
+  .site-title{ font-weight:700; font-size:1.1rem; letter-spacing:-0.02em; }
+  .site-title a{ color: var(--ink); }
+  .site-tagline{ font-family: var(--mono); font-size:12px; color: var(--ink-dim); }
+  footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="site-header">
+    <span class="site-title"><a href="{{ '/' | url }}">Daily Dev Notes</a></span>
+    <span class="site-tagline">AI agents · infra · tooling</span>
+  </header>
+  <main>
+    {{ content | safe }}
+  </main>
+  <footer>Published with Eleventy · Hosted on GitHub Pages</footer>
+</div>
+</body>
+</html>
