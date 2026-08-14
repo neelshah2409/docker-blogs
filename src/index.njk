@@ -1,0 +1,34 @@
+---
+layout: base.njk
+title: Daily Dev Notes
+description: Daily notes on AI agents, infrastructure, and developer tooling.
+---
+<style>
+  .kicker{ display:inline-block; font-family: var(--mono); font-size:11px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:5px 12px; border-radius:999px; margin-bottom:18px; }
+  .lede{ font-size:1.05rem; color: var(--ink-soft); max-width:60ch; margin-bottom:40px; }
+  .post-list{ display:flex; flex-direction:column; gap:16px; }
+  .post-card{ display:block; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:20px 22px; box-shadow: 0 8px 24px rgba(148,55,255,0.06); transition: border-color .15s, transform .15s; }
+  .post-card:hover{ border-color: var(--purple); transform: translateX(3px); }
+  .post-date{ font-family: var(--mono); font-size:11.5px; color: var(--ink-dim); margin-bottom:8px; }
+  .post-title{ font-size:1.15rem; font-weight:600; color: var(--ink); margin-bottom:6px; letter-spacing:-0.01em; }
+  .post-card:hover .post-title{ color: var(--purple-deep); }
+  .post-desc{ color: var(--ink-soft); font-size:0.92rem; margin-bottom:10px; }
+  .post-tags{ display:flex; gap:6px; flex-wrap:wrap; }
+  .post-tag{ font-family: var(--mono); font-size:10.5px; color: var(--purple-deep); background: var(--surface-tint); border:1px solid var(--line); border-radius:999px; padding:3px 9px; }
+</style>
+
+<span class="kicker">Blog</span>
+<p class="lede">Interactive, hands-on write-ups — one topic at a time, published as they're finished.</p>
+
+<div class="post-list">
+{%- for post in posts | sortByDateDesc %}
+  <a class="post-card" href="{{ ('/posts/' + post.slug + '.html') | url }}">
+    <div class="post-date">{{ post.date }} · {{ post.readTime }}</div>
+    <div class="post-title">{{ post.title }}</div>
+    <div class="post-desc">{{ post.description }}</div>
+    <div class="post-tags">
+      {%- for tag in post.tags %}<span class="post-tag">{{ tag }}</span>{% endfor %}
+    </div>
+  </a>
+{%- endfor %}
+</div>
