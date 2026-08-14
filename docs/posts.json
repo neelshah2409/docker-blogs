@@ -1,0 +1,20 @@
+[
+  {
+    "slug": "ai-agent-docker-sandbox",
+    "title": "How to Run Your First AI Coding Agent in a Docker Sandbox",
+    "date": "2026-08-06",
+    "description": "A step-by-step tutorial on running Claude Code, Cursor, and other AI coding agents inside an isolated Docker sandbox — microVM isolation, network policies, and a private Docker daemon.",
+    "tags": ["tutorial", "docker", "ai-agents", "security"],
+    "readTime": "15 min",
+    "difficulty": "intro–intermediate"
+  },
+  {
+    "slug": "microvm-vs-containers-vs-vms",
+    "title": "MicroVMs vs Containers vs Full VMs: The Architecture Behind Docker Sandboxes",
+    "date": "2026-08-14",
+    "description": "A technical deep dive comparing full VMs, containers, Docker-in-Docker, and microVMs — why DinD breaks isolation guarantees for autonomous agents, and the cold-start/overhead tradeoffs that make microVMs the sweet spot.",
+    "tags": ["deep-dive", "docker", "microvm", "security"],
+    "readTime": "22 min",
+    "difficulty": "advanced"
+  }
+]
