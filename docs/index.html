@@ -34,16 +34,7 @@
   .site-title a{ color: var(--ink); }
   .site-tagline{ font-family: var(--mono); font-size:12px; color: var(--ink-dim); }
   footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
-</style>
-</head>
-<body>
-<div class="page">
-  <header class="site-header">
-    <span class="site-title"><a href="/docker-blogs/">Daily Dev Notes</a></span>
-    <span class="site-tagline">AI agents · infra · tooling</span>
-  </header>
-  <main>
-    <style>
+
   .kicker{ display:inline-block; font-family: var(--mono); font-size:11px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:5px 12px; border-radius:999px; margin-bottom:18px; }
   .lede{ font-size:1.05rem; color: var(--ink-soft); max-width:60ch; margin-bottom:40px; }
   .post-list{ display:flex; flex-direction:column; gap:16px; }
@@ -55,30 +46,60 @@
   .post-desc{ color: var(--ink-soft); font-size:0.92rem; margin-bottom:10px; }
   .post-tags{ display:flex; gap:6px; flex-wrap:wrap; }
   .post-tag{ font-family: var(--mono); font-size:10.5px; color: var(--purple-deep); background: var(--surface-tint); border:1px solid var(--line); border-radius:999px; padding:3px 9px; }
+  .empty{ color: var(--ink-dim); font-size:0.9rem; }
 </style>
-
-<span class="kicker">Blog</span>
-<p class="lede">Interactive, hands-on write-ups — one topic at a time, published as they're finished.</p>
-
-<div class="post-list">
-  <a class="post-card" href="/docker-blogs/posts/microvm-vs-containers-vs-vms.html">
-    <div class="post-date">2026-08-14 · 22 min</div>
-    <div class="post-title">MicroVMs vs Containers vs Full VMs: The Architecture Behind Docker Sandboxes</div>
-    <div class="post-desc">A technical deep dive comparing full VMs, containers, Docker-in-Docker, and microVMs — why DinD breaks isolation guarantees for autonomous agents, and the cold-start/overhead tradeoffs that make microVMs the sweet spot.</div>
-    <div class="post-tags"><span class="post-tag">deep-dive</span><span class="post-tag">docker</span><span class="post-tag">microvm</span><span class="post-tag">security</span>
+</head>
+<body>
+<div class="page">
+  <header class="site-header">
+    <span class="site-title"><a href="./">Daily Dev Notes</a></span>
+    <span class="site-tagline">AI agents · infra · tooling</span>
+  </header>
+  <main>
+    <span class="kicker">Blog</span>
+    <p class="lede">Interactive, hands-on write-ups — one topic at a time, published as they're finished.</p>
+    <div class="post-list" id="postList">
+      <p class="empty">Loading posts…</p>
     </div>
-  </a>
-  <a class="post-card" href="/docker-blogs/posts/ai-agent-docker-sandbox.html">
-    <div class="post-date">2026-08-06 · 15 min</div>
-    <div class="post-title">How to Run Your First AI Coding Agent in a Docker Sandbox</div>
-    <div class="post-desc">A step-by-step tutorial on running Claude Code, Cursor, and other AI coding agents inside an isolated Docker sandbox — microVM isolation, network policies, and a private Docker daemon.</div>
-    <div class="post-tags"><span class="post-tag">tutorial</span><span class="post-tag">docker</span><span class="post-tag">ai-agents</span><span class="post-tag">security</span>
-    </div>
-  </a>
-</div>
-
   </main>
-  <footer>Published with Eleventy · Hosted on GitHub Pages</footer>
+  <footer>Hosted on GitHub Pages</footer>
 </div>
+
+<script>
+(function () {
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  fetch('posts.json')
+    .then(function (r) { return r.json(); })
+    .then(function (posts) {
+      posts.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+      var list = document.getElementById('postList');
+      if (!posts.length) {
+        list.innerHTML = '<p class="empty">No posts yet.</p>';
+        return;
+      }
+      list.innerHTML = posts.map(function (p) {
+        var tags = (p.tags || []).map(function (t) {
+          return '<span class="post-tag">' + esc(t) + '</span>';
+        }).join('');
+        return (
+          '<a class="post-card" href="posts/' + encodeURIComponent(p.slug) + '.html">' +
+            '<div class="post-date">' + esc(p.date) + (p.readTime ? ' · ' + esc(p.readTime) : '') + '</div>' +
+            '<div class="post-title">' + esc(p.title) + '</div>' +
+            '<div class="post-desc">' + esc(p.description || '') + '</div>' +
+            '<div class="post-tags">' + tags + '</div>' +
+          '</a>'
+        );
+      }).join('');
+    })
+    .catch(function () {
+      document.getElementById('postList').innerHTML = '<p class="empty">Could not load posts.json.</p>';
+    });
+})();
+</script>
 </body>
 </html>
