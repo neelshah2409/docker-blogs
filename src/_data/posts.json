@@ -7,5 +7,14 @@
     "tags": ["tutorial", "docker", "ai-agents", "security"],
     "readTime": "15 min",
     "difficulty": "intro–intermediate"
+  },
+  {
+    "slug": "microvm-vs-containers-vs-vms",
+    "title": "MicroVMs vs Containers vs Full VMs: The Architecture Behind Docker Sandboxes",
+    "date": "2026-08-14",
+    "description": "A technical deep dive comparing full VMs, containers, Docker-in-Docker, and microVMs — why DinD breaks isolation guarantees for autonomous agents, and the cold-start/overhead tradeoffs that make microVMs the sweet spot.",
+    "tags": ["deep-dive", "docker", "microvm", "security"],
+    "readTime": "22 min",
+    "difficulty": "advanced"
   }
 ]
