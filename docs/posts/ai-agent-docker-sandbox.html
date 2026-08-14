@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Run Your First AI Coding Agent in a Docker Sandbox</title>
+<meta name="description" content="A step-by-step tutorial on running Claude Code, Cursor, and other AI coding agents inside an isolated Docker sandbox — microVM isolation, network policies, and a private Docker daemon.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #9437FF;
+    --purple-deep: #6B21C9;
+    --pink: #F73DF1;
+    --blue: #3FD9FB;
+    --ink: #171321;
+    --ink-soft: #4a4658;
+    --ink-dim: #7d7a89;
+    --line: #ECE7F5;
+    --surface: #FFFFFF;
+    --surface-tint: #FAF8FE;
+    --term-bg: #14111c;
+    --term-line: #ffffff14;
+    --green: #4ADE80;
+    --amber: #FBC473;
+    --red: #FF4747;
+    --radius-lg: 20px;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", "SF Mono", Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(148,55,255,0.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(247,61,241,0.05), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 50% 100%, rgba(63,217,251,0.05), transparent 60%),
+      var(--surface);
+    line-height: 1.55;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--purple-deep); }
+  a:hover{ color: var(--pink); }
+  ::selection{ background: var(--pink); color: #fff; }
+  :focus-visible{ outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 4px; }
+
+  .page{ max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+
+  .crumb{
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    margin-bottom: 26px;
+  }
+  .crumb a{ color: var(--ink-soft); text-decoration:none; }
+  .crumb a:hover{ color: var(--purple); }
+
+  .kicker{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(90deg, var(--purple), var(--pink));
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 18px;
+  }
+
+  h1{
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.9rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin: 0 0 16px;
+  }
+  .lede{
+    font-size: 1.1rem;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 26px;
+  }
+  .meta-bar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 44px; }
+  .chip{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    background: var(--surface-tint);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 14px;
+  }
+  .chip b{ color: var(--purple-deep); font-weight: 600; }
+
+  section{ margin-bottom: 58px; }
+  .eyebrow{
+    display:flex; align-items:center; gap:8px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--purple-deep);
+    margin-bottom: 14px;
+  }
+  .eyebrow::before{ content:""; width:16px; height:2px; background: linear-gradient(90deg,var(--purple),var(--pink)); border-radius:2px; }
+  h2{
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.7rem;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+  }
+  h3{
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin: 24px 0 10px;
+    color: var(--purple-deep);
+  }
+  p{ margin: 0 0 14px; color: var(--ink-soft); }
+  section > p:last-child{ margin-bottom:0; }
+  strong{ color: var(--ink); }
+  code{
+    font-family: var(--mono);
+    font-size: 0.87em;
+    background: var(--surface-tint);
+    border: 1px solid var(--line);
+    padding: 2px 6px;
+    border-radius: 5px;
+    color: var(--purple-deep);
+  }
+
+  .reveal{ opacity:0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  /* def cards */
+  .def-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin: 18px 0 8px; }
+  .def-card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: 0 8px 24px rgba(148,55,255,0.06);
+  }
+  .def-card .term{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+  .def-card .body{ font-size:0.9rem; color: var(--ink-dim); margin:0; }
+
+  .analogy{
+    background: var(--surface-tint);
+    border-left: 3px solid var(--pink);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 0.94rem;
+  }
+  .analogy .label{
+    font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em;
+    color: var(--pink); display:block; margin-bottom:6px; font-weight:600;
+  }
+  .analogy p{ margin:0; }
+
+  /* terminal */
+  .term-label{ font-family: var(--mono); font-size: 11.5px; text-transform:uppercase; letter-spacing:0.1em; color: var(--ink-dim); margin-bottom:8px; }
+  .terminal{ background: var(--term-bg); border-radius: var(--radius); overflow:hidden; margin: 8px 0 22px; box-shadow: 0 12px 32px rgba(23,19,33,0.18); }
+  .terminal .bar{ display:flex; gap:6px; padding:10px 14px; background:#1c1826; border-bottom:1px solid var(--term-line); }
+  .terminal .dot{ width:10px;height:10px;border-radius:50%; }
+  .dot.r{ background:#FF474766; } .dot.y{ background:#FBC47366; } .dot.g{ background:#4ADE8066; }
+  .terminal pre{ margin:0; padding:16px 18px; font-family: var(--mono); font-size:0.84rem; line-height:1.7; overflow-x:auto; color:#e9e6f2; }
+  .terminal .c{ color:#8b869e; }
+
+  /* network policy picker */
+  .policy-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin: 18px 0 14px; }
+  .policy-btn{
+    text-align:left;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    cursor:pointer;
+    font-family: var(--sans);
+    transition: all .15s;
+  }
+  .policy-btn .name{ font-weight:600; font-size:0.95rem; color: var(--ink); display:block; margin-bottom:4px; }
+  .policy-btn .sub{ font-family: var(--mono); font-size:0.72rem; color: var(--ink-dim); }
+  .policy-btn:hover{ border-color: var(--purple); }
+  .policy-btn.active{
+    border-color: transparent;
+    background: linear-gradient(var(--surface),var(--surface)) padding-box,
+                linear-gradient(120deg, var(--purple), var(--pink)) border-box;
+    border: 2px solid transparent;
+    box-shadow: 0 10px 28px rgba(148,55,255,0.16);
+  }
+  .policy-result{
+    background: var(--surface-tint);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+  }
+  .policy-result .verdict{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+
+  /* unified annotated-code widget */
+  .code-widget{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    margin: 16px 0;
+    box-shadow: 0 10px 30px rgba(148,55,255,0.08);
+  }
+  .code-widget-head{ text-align:center; padding: 2px 0 10px; }
+  .code-widget-title{ font-family: var(--mono); font-size:12.5px; font-weight:600; letter-spacing:0.08em; color: var(--ink-soft); text-transform: uppercase; margin:0 0 4px; }
+  .code-widget-sub{ font-size:0.83rem; color: var(--ink-dim); }
+  .code-wrap{ display:grid; grid-template-columns: 1.2fr 1fr; gap:8px; align-items:start; }
+  .code-panel{ background: var(--term-bg); border-radius: var(--radius-sm); padding:10px 0; font-family: var(--mono); font-size:0.8rem; line-height:1.32; overflow-x:auto; }
+  .code-panel pre{ margin:0; padding:0 12px; }
+  .cline{ display:block; padding:1px 8px 1px 10px; border-left:3px solid transparent; border-radius:3px; cursor:pointer; white-space:pre; color:#e9e6f2; transition: background .15s, border-color .15s; }
+  .cline.group{ margin-top:8px; }
+  .cline:hover{ background: rgba(148,55,255,0.16); }
+  .cline.active{ background: rgba(247,61,241,0.18); border-left-color: var(--pink); color:#fff; }
+  .cline.no-note{ cursor:default; } .cline.no-note:hover{ background:none; }
+  .code-note{ background: var(--surface-tint); border-radius: var(--radius-sm); padding:12px 14px; font-size:0.87rem; color: var(--ink-soft); }
+  .code-note .tag{ font-family: var(--mono); font-size:13px; font-weight:600; color: var(--purple-deep); display:block; margin-bottom:6px; }
+  .code-note-tip{ margin-top:10px; background: rgba(148,55,255,0.08); border-left:3px solid var(--purple); border-radius:0 4px 4px 0; padding:7px 11px; font-size:0.82rem; color: var(--purple-deep); }
+  .code-hint{ font-size:0.76rem; color: var(--ink-dim); margin:8px 2px 0; }
+  @media (max-width:640px){ .code-wrap{ grid-template-columns:1fr; } }
+
+  /* quiz */
+  .quiz{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 22px 0; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .quiz .qlabel{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--purple-deep); margin-bottom:8px; display:block; font-weight:600; }
+  .quiz .qtext{ font-weight:600; margin-bottom:14px; color: var(--ink); }
+  .qopt{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius: var(--radius-sm); margin-bottom:8px; cursor:pointer; font-size:0.92rem; transition: border-color .15s, background .15s; }
+  .qopt:hover{ border-color: var(--purple); }
+  .qopt.correct{ border-color: var(--green); background: rgba(74,222,128,0.1); }
+  .qopt.incorrect{ border-color: var(--red); background: rgba(255,71,71,0.08); }
+  .qopt input{ margin-top:3px; accent-color: var(--purple); }
+  .qfeedback{ font-size:0.87rem; margin-top:10px; padding:10px 12px; border-radius: var(--radius-sm); display:none; }
+  .qfeedback.show{ display:block; }
+  .qfeedback.ok{ background: rgba(74,222,128,0.12); color:#1c8a4d; }
+  .qfeedback.no{ background: rgba(255,71,71,0.1); color:#c1272d; }
+
+  /* misconception */
+  .callout{ border-radius: var(--radius); padding: 18px 20px; margin: 18px 0; border:1px solid rgba(255,71,71,0.25); background: rgba(255,71,71,0.05); }
+  .callout .tag{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#c1272d; display:block; margin-bottom:10px; font-weight:600; }
+  .callout .belief{ font-style: italic; color: var(--ink-soft); margin-bottom:12px; }
+  .callout .reality-label{ font-weight:600; color: var(--purple-deep); font-size:0.85rem; margin-bottom:4px; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  /* architecture */
+  .arch-wrap{ display:grid; grid-template-columns: 1fr 1.15fr; gap:16px; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:18px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .arch-layers{ display:flex; flex-direction:column; gap:10px; }
+  .arch-layer{ background: var(--surface-tint); border:1px solid var(--line); border-radius: var(--radius-sm); padding:12px 14px; cursor:pointer; font-family: var(--mono); font-size:0.84rem; color: var(--ink-soft); text-align:left; width:100%; transition: all .15s; }
+  .arch-layer:hover{ transform: translateX(3px); }
+  .arch-layer.active{ border-color: var(--purple); background:#fff; box-shadow: 0 6px 18px rgba(148,55,255,0.15); color: var(--purple-deep); }
+  .arch-layer .tag{ display:block; font-size:0.68rem; opacity:.7; margin-bottom:2px; }
+  .arch-detail{ background: var(--surface-tint); border-radius: var(--radius-sm); padding:16px 18px; font-size:0.9rem; color: var(--ink-soft); min-height:150px; }
+  .arch-detail strong{ color: var(--purple-deep); }
+  @media (max-width:620px){ .arch-wrap{ grid-template-columns:1fr; } }
+
+  /* final quiz */
+  .fq-box{ background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:22px 24px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .fq-progress{ display:flex; justify-content:space-between; font-family: var(--mono); font-size:0.75rem; color: var(--ink-dim); margin-bottom:16px; }
+  .fq-bar{ height:4px; background: var(--line); border-radius:2px; overflow:hidden; margin-bottom:20px; }
+  .fq-bar-fill{ height:100%; background: linear-gradient(90deg,var(--purple),var(--pink)); transition: width .3s ease; width:25%; }
+  .fq-nav{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn{ font-family: var(--sans); font-weight:600; font-size:0.9rem; border:none; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:10px 22px; border-radius:999px; cursor:pointer; transition: transform .15s, box-shadow .15s; box-shadow: 0 8px 20px rgba(148,55,255,0.25); }
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 12px 26px rgba(148,55,255,0.35); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn.ghost{ background: var(--surface); color: var(--purple-deep); border: 1.5px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover{ border-color: var(--purple); }
+  .fq-result{ text-align:center; padding:20px 0 6px; display:none; }
+  .fq-result.show{ display:block; }
+  .fq-score{ font-size:2.3rem; font-weight:700; background: linear-gradient(90deg,var(--purple),var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  /* flashcards */
+  .fc-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:18px 0; }
+  .flashcard{ perspective:1200px; height:150px; cursor:pointer; }
+  .fc-inner{ position:relative; width:100%; height:100%; transition: transform .5s; transform-style: preserve-3d; }
+  .flashcard.flipped .fc-inner{ transform: rotateY(180deg); }
+  .fc-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius: var(--radius); border:1px solid var(--line); padding:16px 18px; display:flex; align-items:center; font-size:0.88rem; box-shadow: 0 8px 22px rgba(148,55,255,0.08); }
+  .fc-front{ background: var(--surface); color: var(--ink); }
+  .fc-back{ background: linear-gradient(135deg, var(--purple), var(--pink)); color:#fff; transform: rotateY(180deg); font-family: var(--mono); font-size:0.82rem; }
+  .fc-hint{ font-family: var(--mono); font-size:0.66rem; color: var(--ink-dim); position:absolute; bottom:10px; right:14px; }
+
+  /* CTA + next steps */
+  .cta-card{
+    display:block; text-decoration:none;
+    background: linear-gradient(120deg, var(--purple), var(--pink) 60%, var(--blue));
+    border-radius: var(--radius-lg);
+    padding: 26px 28px;
+    color: #fff;
+    margin-bottom: 16px;
+    box-shadow: 0 16px 40px rgba(148,55,255,0.28);
+    transition: transform .15s;
+  }
+  .cta-card:hover{ transform: translateY(-2px); }
+  .cta-card .eyebrow-i{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.12em; opacity:0.85; margin-bottom:8px; }
+  .cta-card .title{ font-size:1.3rem; font-weight:700; margin-bottom:6px; }
+  .cta-card .why{ font-size:0.92rem; opacity:0.92; max-width:56ch; }
+  .cta-card .go{ display:inline-block; margin-top:14px; font-weight:600; font-size:0.88rem; }
+
+  .ns-grid{ display:flex; flex-direction:column; gap:12px; }
+  .ns-card{ display:block; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:14px 16px; text-decoration:none; transition: border-color .15s, transform .15s; }
+  .ns-card:hover{ border-color: var(--purple); transform: translateX(3px); }
+  .ns-card .title{ color: var(--purple-deep); font-weight:600; font-size:0.95rem; margin-bottom:3px; }
+  .ns-card .why{ color: var(--ink-dim); font-size:0.84rem; }
+
+  footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="crumb reveal in"><a href="../">Blog</a> › Tutorials › AI Agent Sandboxing</div>
+
+  <header class="reveal in">
+    <span class="kicker">Tutorial · Level 1–2</span>
+    <h1>How to Run Your First AI Coding Agent in a Docker Sandbox</h1>
+    <p class="lede">Coding agents like Claude Code and Cursor are most useful with full shell and filesystem access — which is exactly what makes one wrong command dangerous. Here's how to give an agent a real machine to work in without giving it yours.</p>
+    <div class="meta-bar">
+      <span class="chip">Estimated time <b>15 min</b></span>
+      <span class="chip">Difficulty <b>intro–intermediate</b></span>
+      <span class="chip">Requires <b>Docker Desktop 4.58+</b></span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- PROBLEM -->
+    <section>
+      <span class="eyebrow">the problem</span>
+      <h2>Agent autonomy and blast radius are the same feature</h2>
+      <p>An AI coding agent is genuinely useful the moment you give it a real shell: it can install packages, run your test suite, edit files across the repo, and fix what it breaks. That's also the entire risk surface. A hallucinated <code>rm -rf</code>, a malicious transitive dependency, or a prompt-injected instruction hidden in a scraped web page all execute with exactly the same permissions as your own terminal — because right now, they usually run in it.</p>
+      <p>None of this requires the agent to be malicious. It just needs to be wrong once, with the same access you have.</p>
+
+      <div class="def-grid">
+        <div class="def-card"><div class="term">Full shell access</div><p class="body">The agent can run any command your user account can — install, delete, curl, push to git — with no distinction between "reading a file" and "wiping a drive."</p></div>
+        <div class="def-card"><div class="term">Blast radius</div><p class="body">Everything a single mistaken or malicious action can reach. On your host machine, that's your whole filesystem, SSH keys, and network. In a sandbox, it's one disposable folder.</p></div>
+        <div class="def-card"><div class="term">Prompt injection</div><p class="body">Instructions hidden in content the agent reads — a README, a webpage, a GitHub issue — that get executed as if you'd typed them yourself.</p></div>
+      </div>
+
+      <div class="analogy">
+        <span class="label">Analogy</span>
+        <p>Giving an agent your real machine's shell is like handing a new contractor the master key to the entire building because they only need to fix one office. A sandbox is giving them a key to that one office instead.</p>
+      </div>
+    </section>
+
+    <!-- PREREQUISITES -->
+    <section>
+      <span class="eyebrow">prerequisites</span>
+      <h2>What you need before you start</h2>
+      <p>Two things: <strong>Docker Desktop 4.58 or later</strong> (it added the microVM runtime this sandbox relies on) and the <code>sbx</code> CLI, which wraps Docker with sandbox-specific defaults so you're not hand-rolling isolation flags every time.</p>
+      <div class="term-label">Install and verify</div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <pre><span class="c"># Install the sbx CLI</span>
+curl -fsSL https://get.sbx.dev | sh
+
+<span class="c"># Confirm both are ready</span>
+docker --version   <span class="c"># Docker Desktop 4.58.0 or later</span>
+sbx --version</pre>
+      </div>
+    </section>
+
+    <!-- STEP BY STEP -->
+    <section>
+      <span class="eyebrow">step-by-step</span>
+      <h2>Set up and launch your first sandboxed agent</h2>
+
+      <h3>1. Run the one-time setup</h3>
+      <p><code>sbx setup</code> provisions the microVM runtime and pulls the private Docker daemon image the sandbox uses internally. You only run this once per machine.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <pre><span class="c"># Provisions the microVM + private daemon, one time only</span>
+sbx setup</pre>
+      </div>
+
+      <h3>2. Choose a network policy</h3>
+      <p>This is the single most important decision in the whole setup. It controls what the agent can reach outside its own sandbox.</p>
+      <div class="policy-grid">
+        <button class="policy-btn active" data-policy="open"><span class="name">Open</span><span class="sub">full outbound internet</span></button>
+        <button class="policy-btn" data-policy="balanced"><span class="name">Balanced</span><span class="sub">allow-listed registries only</span></button>
+        <button class="policy-btn" data-policy="locked"><span class="name">Locked Down</span><span class="sub">fully offline</span></button>
+      </div>
+      <div class="policy-result" id="policyResult"></div>
+
+      <h3>3. Launch the agent from your project directory</h3>
+      <p>From inside the project you want the agent to work on, point <code>sbx run</code> at your config and go:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <pre><span class="c"># Scoped to this directory, using sbx.yaml below</span>
+sbx run claude-code --project . --config sbx.yaml</pre>
+      </div>
+      <p>That config file is where the isolation actually gets defined — click through it below.</p>
+
+      <div class="code-widget">
+        <div class="code-widget-head">
+          <div class="code-widget-title">sbx.yaml — agent sandbox config anatomy</div>
+          <div class="code-widget-sub">Click any highlighted line to learn what it does</div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-panel"><pre id="composeCode"></pre></div>
+          <div class="code-note" id="composeNote">
+            <span class="tag">Click a line to start</span>
+            Select any highlighted line on the left to see what it controls.
+          </div>
+        </div>
+        <div class="code-hint">Lines that don't highlight on hover are plain YAML structure — nothing to click.</div>
+      </div>
+
+      <div class="quiz" data-quiz>
+        <span class="qlabel">Check your understanding</span>
+        <div class="qtext">You're pointing an agent at a repo it only needs to read and refactor — no installs, no external calls. Which network policy fits best?</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Open, in case it needs to look something up</div>
+        <div class="qopt" data-correct="true"><input type="radio" name="q1"> Locked Down — there's no task here that needs network access</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Balanced, just to be safe</div>
+        <div class="qfeedback"></div>
+      </div>
+    </section>
+
+    <!-- SKILLS IMPORT -->
+    <section>
+      <span class="eyebrow">shared context</span>
+      <h2>Give the agent vetted skills, not a blank slate</h2>
+      <p>A sandboxed agent that starts from scratch every session tends to reinvent its own approach to your team's conventions — Terraform review checklists, migration playbooks, code style rules. <code>sbx skills import</code> pulls a pre-approved skill bundle from your team's shared skills store instead, so every sandbox run starts from the same reviewed instructions rather than whatever the agent improvises.</p>
+      <div class="term-label">Import and list available skills</div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <pre><span class="c"># Pull a vetted skill bundle into the sandbox</span>
+sbx skills import terraform-review
+
+<span class="c"># See everything your team has published</span>
+sbx skills list --store shared</pre>
+      </div>
+      <p>Because the store is shared, a skill one engineer wrote and reviewed once — say, "how we review Terraform diffs" — is available to every sandboxed agent run on the team from that point on, without anyone re-explaining it in a prompt.</p>
+    </section>
+
+    <!-- MISCONCEPTION -->
+    <section>
+      <span class="eyebrow">common misconception</span>
+      <div class="callout">
+        <span class="tag">What people assume</span>
+        <p class="belief">"It's running in a container, so I can mount my whole home directory and skip the network policy — nothing bad can actually happen."</p>
+        <div class="reality-label">What's actually true</div>
+        <p>Isolation is only as strong as the scope you give it. Mounting more than the project directory hands the agent write access to files that have nothing to do with the task. Skipping the network policy (defaulting to Open) means a prompt-injected instruction can still exfiltrate data or pull down something you didn't ask for. <code>workspace.readonly_root</code> and a deliberately chosen network policy aren't optional extras — they're the two settings doing most of the actual protecting.</p>
+      </div>
+    </section>
+
+    <!-- EXPECTED OUTCOME -->
+    <section>
+      <span class="eyebrow">expected outcome</span>
+      <h2>What "isolated" actually means here</h2>
+      <p>Once <code>sbx run</code> is going, the agent is operating three layers away from your real machine. Click each layer to see what it can and can't reach.</p>
+      <div class="arch-wrap">
+        <div class="arch-layers">
+          <button class="arch-layer active" data-layer="host"><span class="tag">layer 3 — your machine</span>Host OS &amp; real Docker Desktop</button>
+          <button class="arch-layer" data-layer="microvm"><span class="tag">layer 2</span>sbx microVM</button>
+          <button class="arch-layer" data-layer="agent"><span class="tag">layer 1 — innermost</span>Agent sandbox container</button>
+        </div>
+        <div class="arch-detail" id="archDetail"></div>
+      </div>
+      <p>The result: the agent gets a fully functional Linux environment with its own kernel boundary (not just container namespaces), its own throwaway Docker daemon for anything it builds or runs, and — depending on the policy you picked — no path back to your host filesystem or network at all.</p>
+    </section>
+
+    <!-- BEYOND THIS TUTORIAL -->
+    <section>
+      <span class="eyebrow">why this matters beyond one agent session</span>
+      <h2>Sandboxing is the floor, not the ceiling</h2>
+      <p>Running one agent safely in a terminal is a good habit. But the same problem shows up at a larger scale the moment you let AI propose or apply changes to actual infrastructure — a Terraform plan, a Kubernetes manifest, a production config. The same principle this tutorial just walked through still applies: an agent should never get more filesystem, network, or execution access than the specific task requires, whether that task is refactoring a function or provisioning a VPC.</p>
+      <p>Sandboxed execution isn't a nice-to-have bolted on afterward — it's the prerequisite everything else in AI-driven infrastructure automation sits on top of.</p>
+
+      <a class="cta-card" href="https://docs.sbx.dev" target="_blank" rel="noopener">
+        <div class="eyebrow-i">Beyond this tutorial</div>
+        <div class="title">Apply the same sandboxing model to infrastructure changes</div>
+        <div class="why">The same isolate-first discipline — scoped filesystem access, an explicit network policy, disposable execution — holds up just as well when an agent is proposing changes to real infrastructure, not only editing code.</div>
+        <span class="go">Read the sbx docs →</span>
+      </a>
+    </section>
+
+    <!-- FINAL QUIZ -->
+    <section>
+      <span class="eyebrow">check what you've learned</span>
+      <h2>Four-question recap</h2>
+      <div class="fq-box">
+        <div class="fq-progress"><span id="fqPos">Q 1 / 4</span><span></span></div>
+        <div class="fq-bar"><div class="fq-bar-fill" id="fqBarFill"></div></div>
+        <div id="fqQuestion"></div>
+        <div class="fq-nav">
+          <button class="btn ghost" id="fqPrev" disabled>Back</button>
+          <button class="btn" id="fqNext">Next</button>
+        </div>
+        <div class="fq-result" id="fqResult">
+          <div class="fq-score" id="fqScoreFinal"></div>
+          <p id="fqScoreLabel"></p>
+          <button class="btn" id="fqRestart">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLASHCARDS -->
+    <section>
+      <span class="eyebrow">flashcards</span>
+      <h2>Click to reveal</h2>
+      <div class="fc-grid" id="fcGrid"></div>
+    </section>
+
+    <!-- NEXT STEPS -->
+    <section>
+      <span class="eyebrow">next steps</span>
+      <h2>Where to go from here</h2>
+      <div class="ns-grid">
+        <a class="ns-card" href="https://docs.docker.com/desktop/" target="_blank" rel="noopener">
+          <div class="title">Download Docker Desktop 4.58+ ↗</div>
+          <div class="why">The microVM runtime this whole tutorial depends on ships from this version onward.</div>
+        </a>
+        <a class="ns-card" href="https://docs.docker.com/engine/security/" target="_blank" rel="noopener">
+          <div class="title">Docker security documentation ↗</div>
+          <div class="why">Covers the isolation boundaries sbx builds on, plus what breaks them — useful background once the basics here feel natural.</div>
+        </a>
+        <a class="ns-card" href="https://docs.sbx.dev" target="_blank" rel="noopener">
+          <div class="title">sbx CLI reference ↗</div>
+          <div class="why">Every flag and sbx.yaml field used above, plus advanced network policy rules.</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>Blog · Tutorials · AI Agent Sandboxing</footer>
+</div>
+
+<script>
+(function(){
+  var revealEls = document.querySelectorAll('section');
+  revealEls.forEach(function(el){ el.classList.add('reveal'); });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  }, {threshold:0.08});
+  revealEls.forEach(function(el){ io.observe(el); });
+
+  /* network policy picker */
+  var policyData = {
+    open: {verdict:"Open — full outbound internet, no inbound.", text:"Use for agents that need to fetch documentation, hit public APIs, or research something live. Nothing can reach in, but the agent can reach almost anything out — including somewhere a prompt-injected instruction might want it to go."},
+    balanced: {verdict:"Balanced — allow-listed registries and APIs only.", text:"The default we'd recommend for most sessions. The agent can run npm install, pip install, or hit GitHub's API, but can't make arbitrary outbound requests to unknown hosts."},
+    locked: {verdict:"Locked Down — fully offline, zero network.", text:"For agents working only with code already on disk: refactors, test fixes, documentation. If the task doesn't need the internet, this removes an entire category of risk instead of just managing it."}
+  };
+  document.querySelectorAll('.policy-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.policy-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var d = policyData[btn.dataset.policy];
+      document.getElementById('policyResult').innerHTML = '<div class="verdict">'+d.verdict+'</div><div>'+d.text+'</div>';
+    });
+  });
+  document.querySelector('.policy-btn').click();
+
+  /* inline quiz */
+  document.querySelectorAll('[data-quiz]').forEach(function(quiz){
+    var opts = quiz.querySelectorAll('.qopt');
+    var fb = quiz.querySelector('.qfeedback');
+    opts.forEach(function(opt){
+      opt.addEventListener('click', function(){
+        var input = opt.querySelector('input'); input.checked = true;
+        opts.forEach(function(o){ o.classList.remove('correct','incorrect'); });
+        var isCorrect = opt.dataset.correct === 'true';
+        opt.classList.add(isCorrect ? 'correct' : 'incorrect');
+        if(!isCorrect){ opts.forEach(function(o){ if(o.dataset.correct==='true'){ o.classList.add('correct'); } }); }
+        fb.textContent = isCorrect ? "Right — if the task doesn't need the network, remove it entirely." : "Not quite — think about which policy removes the risk instead of just managing it.";
+        fb.className = 'qfeedback show ' + (isCorrect ? 'ok' : 'no');
+      });
+    });
+  });
+
+  /* annotated sbx.yaml */
+  var composeLines = [
+    {t:"agent:", note:null},
+    {t:"  name: claude-code", note:"Which agent binary sbx launches inside the sandbox. Any CLI-based coding agent works the same way.", tip:null},
+    {t:"  runtime: microvm", note:"Runs the sandbox inside a lightweight virtual machine with its own kernel, not just container namespaces — a stronger boundary than a normal docker run.", tip:null},
+    {t:"  image: sbx/agent-runtime:1.4", note:"The base sandbox image, pinned to a specific version so every run — yours and your teammates' — behaves identically.", tip:null},
+    {t:"network:", note:null, group:true},
+    {t:"  policy: balanced", note:"Sets which of the three network policies applies — Open, Balanced, or Locked Down, as chosen above.", tip:"Sandbox: this is the single line most responsible for limiting what a compromised or hallucinating agent can reach."},
+    {t:"workspace:", note:null, group:true},
+    {t:"  mount: ./", note:"Only this project directory is made visible inside the sandbox — nothing else on your machine exists from the agent's point of view.", tip:null},
+    {t:"  readonly_root: true", note:"The agent can read every file in the project but can only write inside a scoped scratch path you define — it can't silently overwrite files outside that scope.", tip:"Sandbox: pair this with a narrow write path instead of leaving it wide open, even inside the sandbox."},
+    {t:"docker:", note:null, group:true},
+    {t:"  daemon: private", note:"The agent gets its own disposable Docker daemon inside the microVM. Any docker build or docker run it issues can't see or touch your real Docker Desktop images and containers.", tip:null},
+    {t:"skills:", note:null, group:true},
+    {t:"  import: shared", note:"Pulls vetted skill bundles from your team's shared skills store at launch, so the agent starts with reviewed conventions instead of a blank prompt.", tip:null}
+  ];
+  var codeEl = document.getElementById('composeCode');
+  composeLines.forEach(function(line){
+    var span = document.createElement('span');
+    span.className = 'cline' + (line.note ? '' : ' no-note') + (line.group ? ' group' : '');
+    span.textContent = line.t;
+    if(line.note){ span.dataset.note = line.note; }
+    if(line.tip){ span.dataset.tip = line.tip; }
+    codeEl.appendChild(span);
+    codeEl.appendChild(document.createTextNode('\n'));
+  });
+  codeEl.querySelectorAll('.cline').forEach(function(span){
+    if(!span.dataset.note) return;
+    span.addEventListener('click', function(){
+      codeEl.querySelectorAll('.cline').forEach(function(s){ s.classList.remove('active'); });
+      span.classList.add('active');
+      var html = '<span class="tag">' + span.textContent.trim() + '</span>' + span.dataset.note;
+      if(span.dataset.tip){ html += '<div class="code-note-tip">' + span.dataset.tip + '</div>'; }
+      document.getElementById('composeNote').innerHTML = html;
+    });
+  });
+
+  /* architecture layers */
+  var archData = {
+    host: "<strong>Host OS &amp; real Docker Desktop</strong><br><br>Your actual machine. It can see the microVM exists and can start or stop it, but has no visibility into what's happening inside — the agent's shell commands never touch this layer.",
+    microvm: "<strong>sbx microVM</strong><br><br>A lightweight VM with its own kernel — the boundary <code>runtime: microvm</code> sets up. This is stronger than plain container namespaces: even a kernel-level exploit inside stays inside this VM.",
+    agent: "<strong>Agent sandbox container</strong><br><br>Where the agent's shell commands actually run, against only the mounted workspace and whatever the network policy allows. This is the layer you configured in sbx.yaml."
+  };
+  document.querySelectorAll('.arch-layer').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.arch-layer').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('archDetail').innerHTML = archData[btn.dataset.layer];
+    });
+  });
+  document.getElementById('archDetail').innerHTML = archData.host;
+
+  /* final quiz */
+  var fq = [
+    {q:"What isolation layer does sbx add beyond a normal container's namespaces?", opts:["A second copy of Docker Desktop","A microVM with its own kernel","A firewall rule","Nothing — it's the same as any container"], correct:1},
+    {q:"An agent only needs to read and refactor code already on disk. Which network policy fits?", opts:["Open","Balanced","Locked Down","Whichever is fastest to set up"], correct:2},
+    {q:"What does docker.daemon: private protect against?", opts:["Slow build times","The agent's own docker commands touching your real Docker Desktop images and containers","Running out of disk space","Nothing — it's a performance setting"], correct:1},
+    {q:"Where do reviewed, reusable agent instructions come from in this workflow?", opts:["The agent invents them fresh each session","sbx skills import, from the team's shared skills store","A hardcoded config file","They aren't reusable across sessions"], correct:1}
+  ];
+  var fqIndex = 0, fqAnswers = new Array(fq.length).fill(null);
+  function renderFq(){
+    var item = fq[fqIndex];
+    document.getElementById('fqPos').textContent = 'Q ' + (fqIndex+1) + ' / ' + fq.length;
+    document.getElementById('fqBarFill').style.width = (((fqIndex+1)/fq.length)*100) + '%';
+    var html = '<div class="qtext" style="margin-bottom:14px;">' + item.q + '</div>';
+    item.opts.forEach(function(opt,i){
+      var picked = fqAnswers[fqIndex]; var cls='';
+      if(picked !== null){ if(i===item.correct) cls=' correct'; else if(i===picked) cls=' incorrect'; }
+      html += '<div class="qopt'+cls+'" data-i="'+i+'"><input type="radio" name="fqopt" '+(picked===i?'checked':'')+'> '+opt+'</div>';
+    });
+    document.getElementById('fqQuestion').innerHTML = html;
+    document.getElementById('fqPrev').disabled = fqIndex === 0;
+    document.getElementById('fqNext').textContent = fqIndex === fq.length-1 ? 'Finish' : 'Next';
+    document.querySelectorAll('#fqQuestion .qopt').forEach(function(opt){
+      opt.addEventListener('click', function(){
+        if(fqAnswers[fqIndex] !== null) return;
+        fqAnswers[fqIndex] = parseInt(opt.dataset.i,10);
+        renderFq();
+      });
+    });
+  }
+  document.getElementById('fqNext').addEventListener('click', function(){
+    if(fqIndex < fq.length-1){ fqIndex++; renderFq(); }
+    else{
+      var score = fqAnswers.reduce(function(acc,a,i){ return acc + (a===fq[i].correct?1:0); },0);
+      document.getElementById('fqScoreFinal').textContent = score + ' / ' + fq.length;
+      document.getElementById('fqScoreLabel').textContent =
+        score === fq.length ? "Perfect — you've got the isolation model down." :
+        score >= fq.length-1 ? "Almost — worth a quick re-read above." :
+        "Worth another pass through the sbx.yaml and network policy sections.";
+      document.getElementById('fqResult').classList.add('show');
+      document.getElementById('fqQuestion').style.display='none';
+      document.querySelector('.fq-nav').style.display='none';
+    }
+  });
+  document.getElementById('fqPrev').addEventListener('click', function(){ if(fqIndex>0){ fqIndex--; renderFq(); } });
+  document.getElementById('fqRestart').addEventListener('click', function(){
+    fqIndex=0; fqAnswers = new Array(fq.length).fill(null);
+    document.getElementById('fqResult').classList.remove('show');
+    document.getElementById('fqQuestion').style.display='';
+    document.querySelector('.fq-nav').style.display='';
+    renderFq();
+  });
+  renderFq();
+
+  /* flashcards */
+  var cards = [
+    {q:"What does sbx setup do?", a:"Provisions the microVM runtime and pulls the private Docker daemon image — a one-time step per machine."},
+    {q:"Balanced vs. Locked Down network policy?", a:"Balanced allows an allow-listed set of package registries and APIs. Locked Down allows no network at all."},
+    {q:"What does workspace.readonly_root: true actually restrict?", a:"The agent can read the whole project but can only write inside a scoped scratch path — not overwrite anything outside it."},
+    {q:"What problem does docker.daemon: private solve?", a:"Stops the agent's own docker build / docker run commands from touching your real Docker Desktop images and containers."},
+    {q:"What is the shared skills store?", a:"A team-vetted registry of reusable agent skill bundles, imported with sbx skills import instead of reinvented per session."}
+  ];
+  var fcGrid = document.getElementById('fcGrid');
+  cards.forEach(function(c){
+    var el = document.createElement('div');
+    el.className='flashcard'; el.tabIndex=0;
+    el.innerHTML = '<div class="fc-inner"><div class="fc-face fc-front">'+c.q+'<span class="fc-hint">click to flip</span></div><div class="fc-face fc-back">'+c.a+'</div></div>';
+    el.addEventListener('click', function(){ el.classList.toggle('flipped'); });
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.classList.toggle('flipped'); } });
+    fcGrid.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>
