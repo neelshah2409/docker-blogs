@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beyond AI Agents: Other Uses for Docker Sandboxes</title>
+<meta name="description" content="Docker Sandboxes were built for autonomous coding agents, but the same microVM isolation applies to malware analysis, untrusted third-party code, and ephemeral CI — with different network policy choices for each.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #9437FF;
+    --purple-deep: #6B21C9;
+    --pink: #F73DF1;
+    --blue: #3FD9FB;
+    --ink: #171321;
+    --ink-soft: #4a4658;
+    --ink-dim: #7d7a89;
+    --line: #ECE7F5;
+    --surface: #FFFFFF;
+    --surface-tint: #FAF8FE;
+    --green: #4ADE80;
+    --amber: #FBC473;
+    --red: #FF4747;
+    --radius-lg: 20px;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", "SF Mono", Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(148,55,255,0.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(247,61,241,0.05), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 50% 100%, rgba(63,217,251,0.05), transparent 60%),
+      var(--surface);
+    line-height: 1.6;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--purple-deep); }
+  a:hover{ color: var(--pink); }
+  ::selection{ background: var(--pink); color: #fff; }
+  :focus-visible{ outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 4px; }
+
+  .page{ max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+  .crumb{ font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); margin-bottom: 26px; }
+  .crumb a{ color: var(--ink-soft); text-decoration:none; }
+  .crumb a:hover{ color: var(--purple); }
+
+  .kicker{ display:inline-flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: linear-gradient(90deg, var(--purple), var(--pink)); padding: 6px 14px; border-radius: 999px; margin-bottom: 18px; }
+
+  h1{ font-weight: 600; font-size: clamp(1.85rem, 4.6vw, 2.6rem); line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 16px; }
+  .lede{ font-size: 1.08rem; color: var(--ink-soft); max-width: 62ch; margin: 0 0 26px; }
+  .meta-bar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 44px; }
+  .chip{ font-family: var(--mono); font-size: 12px; color: var(--ink-soft); background: var(--surface-tint); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
+  .chip b{ color: var(--purple-deep); font-weight: 600; }
+
+  section{ margin-bottom: 56px; }
+  .eyebrow{ display:flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--purple-deep); margin-bottom: 14px; }
+  .eyebrow::before{ content:""; width:16px; height:2px; background: linear-gradient(90deg,var(--purple),var(--pink)); border-radius:2px; }
+  h2{ font-weight: 600; font-size: 1.55rem; letter-spacing: -0.02em; margin: 0 0 16px; }
+  h3{ font-weight: 600; font-size: 1rem; margin: 20px 0 10px; color: var(--purple-deep); }
+  p{ margin: 0 0 14px; color: var(--ink-soft); }
+  section > p:last-child{ margin-bottom:0; }
+  strong{ color: var(--ink); }
+  code{ font-family: var(--mono); font-size: 0.87em; background: var(--surface-tint); border: 1px solid var(--line); padding: 2px 6px; border-radius: 5px; color: var(--purple-deep); }
+
+  .reveal{ opacity:0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  .def-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin: 18px 0 8px; }
+  .def-card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .def-card .term{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+  .def-card .body{ font-size:0.9rem; color: var(--ink-dim); margin:0; }
+
+  .tbl-wrap{ overflow-x:auto; margin: 18px 0; border: 1px solid var(--line); border-radius: var(--radius); }
+  table{ width:100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td{ text-align:left; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  th{ font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple-deep); font-weight: 600; background: var(--surface-tint); }
+  td{ color: var(--ink-soft); }
+  tr td:first-child{ color: var(--ink); font-weight: 500; }
+  tr:last-child td{ border-bottom:none; }
+
+  /* use-case picker */
+  .case-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin: 18px 0 14px; }
+  .case-btn{ text-align:left; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 13px 15px; cursor:pointer; transition: all .15s; }
+  .case-btn .name{ font-weight:600; font-size:0.92rem; color: var(--ink); display:block; margin-bottom:2px; }
+  .case-btn .sub{ font-family: var(--mono); font-size:0.7rem; color: var(--ink-dim); }
+  .case-btn:hover{ border-color: var(--purple); }
+  .case-btn.active{ border-color: transparent; background: linear-gradient(var(--surface),var(--surface)) padding-box, linear-gradient(120deg, var(--purple), var(--pink)) border-box; border: 2px solid transparent; box-shadow: 0 10px 28px rgba(148,55,255,0.16); }
+  .case-panel{ background: var(--surface-tint); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; font-size:0.92rem; color: var(--ink-soft); }
+  .case-panel .verdict{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+  .case-panel .policy-tag{ display:inline-block; margin-top:12px; font-family: var(--mono); font-size:0.75rem; background: var(--surface); border:1px solid var(--line); border-radius:999px; padding:4px 12px; color: var(--purple-deep); }
+
+  /* derived throughput table */
+  .throughput-wrap{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px 20px; margin: 18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .perf-row{ margin-bottom: 14px; }
+  .perf-row:last-child{ margin-bottom:0; }
+  .perf-label{ display:flex; justify-content:space-between; font-size:0.86rem; margin-bottom:5px; }
+  .perf-label .name{ font-weight:600; color: var(--ink); }
+  .perf-label .val{ font-family: var(--mono); color: var(--purple-deep); }
+  .perf-track{ height:10px; background: var(--line); border-radius:6px; overflow:hidden; }
+  .perf-fill{ height:100%; border-radius:6px; background: linear-gradient(90deg,var(--purple),var(--pink)); }
+  .throughput-caption{ font-size:0.78rem; color: var(--ink-dim); margin-top:14px; }
+
+  .quiz{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 22px 0; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .quiz .qlabel{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--purple-deep); margin-bottom:8px; display:block; font-weight:600; }
+  .quiz .qtext{ font-weight:600; margin-bottom:14px; color: var(--ink); }
+  .qopt{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius: var(--radius-sm); margin-bottom:8px; cursor:pointer; font-size:0.92rem; transition: border-color .15s, background .15s; }
+  .qopt:hover{ border-color: var(--purple); }
+  .qopt.correct{ border-color: var(--green); background: rgba(74,222,128,0.1); }
+  .qopt.incorrect{ border-color: var(--red); background: rgba(255,71,71,0.08); }
+  .qopt input{ margin-top:3px; accent-color: var(--purple); }
+  .qfeedback{ font-size:0.87rem; margin-top:10px; padding:10px 12px; border-radius: var(--radius-sm); display:none; }
+  .qfeedback.show{ display:block; }
+  .qfeedback.ok{ background: rgba(74,222,128,0.12); color:#1c8a4d; }
+  .qfeedback.no{ background: rgba(255,71,71,0.1); color:#c1272d; }
+
+  .callout{ border-radius: var(--radius); padding: 18px 20px; margin: 18px 0; border:1px solid rgba(255,71,71,0.25); background: rgba(255,71,71,0.05); }
+  .callout .tag{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#c1272d; display:block; margin-bottom:10px; font-weight:600; }
+  .callout .belief{ font-style: italic; color: var(--ink-soft); margin-bottom:12px; }
+  .callout .reality-label{ font-weight:600; color: var(--purple-deep); font-size:0.85rem; margin-bottom:4px; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  .fq-box{ background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:22px 24px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .fq-progress{ display:flex; justify-content:space-between; font-family: var(--mono); font-size:0.75rem; color: var(--ink-dim); margin-bottom:16px; }
+  .fq-bar{ height:4px; background: var(--line); border-radius:2px; overflow:hidden; margin-bottom:20px; }
+  .fq-bar-fill{ height:100%; background: linear-gradient(90deg,var(--purple),var(--pink)); transition: width .3s ease; width:20%; }
+  .fq-nav{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn{ font-family: var(--sans); font-weight:600; font-size:0.9rem; border:none; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:10px 22px; border-radius:999px; cursor:pointer; transition: transform .15s, box-shadow .15s; box-shadow: 0 8px 20px rgba(148,55,255,0.25); }
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 12px 26px rgba(148,55,255,0.35); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn.ghost{ background: var(--surface); color: var(--purple-deep); border: 1.5px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover{ border-color: var(--purple); }
+  .fq-result{ text-align:center; padding:20px 0 6px; display:none; }
+  .fq-result.show{ display:block; }
+  .fq-score{ font-size:2.3rem; font-weight:700; background: linear-gradient(90deg,var(--purple),var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .fc-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:18px 0; }
+  .flashcard{ perspective:1200px; height:150px; cursor:pointer; }
+  .fc-inner{ position:relative; width:100%; height:100%; transition: transform .5s; transform-style: preserve-3d; }
+  .flashcard.flipped .fc-inner{ transform: rotateY(180deg); }
+  .fc-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius: var(--radius); border:1px solid var(--line); padding:16px 18px; display:flex; align-items:center; font-size:0.87rem; box-shadow: 0 8px 22px rgba(148,55,255,0.08); }
+  .fc-front{ background: var(--surface); color: var(--ink); }
+  .fc-back{ background: linear-gradient(135deg, var(--purple), var(--pink)); color:#fff; transform: rotateY(180deg); font-family: var(--mono); font-size:0.8rem; }
+  .fc-hint{ font-family: var(--mono); font-size:0.66rem; color: var(--ink-dim); position:absolute; bottom:10px; right:14px; }
+
+  .cta-card{ display:block; text-decoration:none; background: linear-gradient(120deg, var(--purple), var(--pink) 60%, var(--blue)); border-radius: var(--radius-lg); padding: 24px 26px; color: #fff; margin-bottom: 16px; box-shadow: 0 16px 40px rgba(148,55,255,0.28); transition: transform .15s; }
+  .cta-card:hover{ transform: translateY(-2px); }
+  .cta-card .eyebrow-i{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.12em; opacity:0.85; margin-bottom:8px; }
+  .cta-card .title{ font-size:1.15rem; font-weight:700; margin-bottom:6px; }
+  .cta-card .why{ font-size:0.9rem; opacity:0.92; max-width:56ch; }
+  .cta-card .go{ display:inline-block; margin-top:12px; font-weight:600; font-size:0.87rem; }
+
+  .ns-grid{ display:flex; flex-direction:column; gap:12px; }
+  .ns-card{ display:block; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:14px 16px; text-decoration:none; transition: border-color .15s, transform .15s; }
+  .ns-card:hover{ border-color: var(--purple); transform: translateX(3px); }
+  .ns-card .title{ color: var(--purple-deep); font-weight:600; font-size:0.95rem; margin-bottom:3px; }
+  .ns-card .why{ color: var(--ink-dim); font-size:0.84rem; }
+
+  footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="crumb reveal in"><a href="#">Blog</a> › Use Cases › Sandboxing</div>
+
+  <header class="reveal in">
+    <span class="kicker">Use Case / Applied</span>
+    <h1>Beyond AI Agents: Other Uses for Docker Sandboxes</h1>
+    <p class="lede">Docker Sandboxes were built to solve one problem — autonomous coding agents needing real permissions without real risk. But a disposable microVM with a hard isolation boundary doesn't actually know or care what's running inside it. That's worth taking advantage of.</p>
+    <div class="meta-bar">
+      <span class="chip">Estimated time <b>11 min</b></span>
+      <span class="chip">Format <b>applied use cases</b></span>
+      <span class="chip">Builds on <b>Sandboxing series</b></span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- RECAP -->
+    <section>
+      <span class="eyebrow">recap</span>
+      <h2>The capability, stripped of its original use case</h2>
+      <p>Underneath the "AI agent" framing, a Docker Sandbox is a fairly general primitive: a microVM with its own kernel, a private disposable Docker daemon, a scoped workspace mount, and a network policy that determines what it can reach. None of that is specific to agents — it's specific to running something you don't fully trust, and needing it to boot fast enough that the isolation doesn't get in the way of getting work done.</p>
+      <p>Widen the definition of "something you don't fully trust" past "an LLM's shell commands," and three more use cases show up almost immediately.</p>
+
+      <div class="def-grid">
+        <div class="def-card"><div class="term">microVM boundary</div><p class="body">A real second kernel, not shared namespaces — the part of the design that doesn't change no matter what workload runs inside it.</p></div>
+        <div class="def-card"><div class="term">Private daemon</div><p class="body">A disposable Docker daemon scoped to the sandbox, so whatever runs inside can build and run its own containers without touching the host's.</p></div>
+        <div class="def-card"><div class="term">Network policy</div><p class="body">The configurable part that should change per use case — what a sandbox is allowed to reach says more about the workload than the isolation itself does.</p></div>
+      </div>
+    </section>
+
+    <!-- USE CASES -->
+    <section>
+      <span class="eyebrow">three use cases beyond agents</span>
+      <h2>Where the same primitive applies directly</h2>
+      <p>Click through each — the isolation is identical in all three; only the network policy and the reason for using it change.</p>
+
+      <div class="case-grid">
+        <button class="case-btn active" data-case="malware"><span class="name">Malware analysis</span><span class="sub">security research</span></button>
+        <button class="case-btn" data-case="untrusted"><span class="name">Untrusted third-party code</span><span class="sub">user-submitted code</span></button>
+        <button class="case-btn" data-case="ci"><span class="name">Ephemeral CI / test</span><span class="sub">build pipelines</span></button>
+      </div>
+      <div class="case-panel" id="casePanel"></div>
+    </section>
+
+    <!-- MISCONCEPTION -->
+    <section>
+      <span class="eyebrow">common misconception</span>
+      <div class="callout">
+        <span class="tag">What people assume</span>
+        <p class="belief">"For malware analysis, always cut the network entirely — that's the safest option, full stop."</p>
+        <div class="reality-label">What's actually true</div>
+        <p>Fully offline is safest for containment, but it can also blind you: a lot of malware's interesting behavior — command-and-control callbacks, payload staging, exfiltration attempts — only shows up once it tries to talk to the network. Analysts often deliberately allow a policy-restricted, monitored egress path (pointed at decoy infrastructure, not the real internet) so that behavior is observable instead of silently suppressed. "Locked Down" isn't automatically the right answer even when the workload is the most hostile one on this list — it depends on whether you're containing the sample or studying it.</p>
+      </div>
+    </section>
+
+    <!-- FAST START/STOP -->
+    <section>
+      <span class="eyebrow">throughput</span>
+      <h2>Why the boot time number matters more here than it did for agents</h2>
+      <p>For a single coding agent session, the gap between a 30-second VM boot and a 125-millisecond microVM boot is a nice-to-have. For malware analysis and CI, where the point is running the same kind of workload over and over across many samples or many commits, that gap compounds directly into throughput.</p>
+
+      <div class="throughput-wrap">
+        <div class="perf-row">
+          <div class="perf-label"><span class="name">Full VM — fresh launches per minute</span><span class="val">~1–2</span></div>
+          <div class="perf-track"><div class="perf-fill" style="width:14%"></div></div>
+        </div>
+        <div class="perf-row">
+          <div class="perf-label"><span class="name">microVM sandbox — fresh launches per minute</span><span class="val">~450+</span></div>
+          <div class="perf-track"><div class="perf-fill" style="width:100%"></div></div>
+        </div>
+        <div class="throughput-caption">Derived from published ~30–60s full-VM boot times versus ~125ms microVM boot times — a rough ceiling based on boot time alone, ignoring other bottlenecks like disk I/O or analysis duration itself. Real-world throughput will be lower once the workload inside is actually doing something.</div>
+      </div>
+
+      <p>In practice, that ceiling means a malware analysis pipeline can push a sample through many different tool configurations in the time a single full-VM run would have taken, and a CI system can give every commit — not just every merge to main — its own completely fresh, disposable environment without the boot cost becoming the bottleneck.</p>
+    </section>
+
+    <!-- NETWORK POLICY GUIDANCE -->
+    <section>
+      <span class="eyebrow">practical guidance</span>
+      <h2>Choosing a network policy per use case</h2>
+      <div class="tbl-wrap">
+        <table>
+          <tr><th>Use case</th><th>Typical policy</th><th>Why</th></tr>
+          <tr><td>Malware analysis (containment)</td><td>Locked Down</td><td>No path out at all — the safest default when the goal is preventing spread, not observing behavior</td></tr>
+          <tr><td>Malware analysis (behavioral study)</td><td>Balanced, pointed at decoy infrastructure</td><td>Lets C2 and exfiltration attempts happen somewhere observable instead of being silently blocked</td></tr>
+          <tr><td>Untrusted third-party / user-submitted code</td><td>Balanced or Locked Down</td><td>Most platforms only need package registries, if that — default to the narrowest policy the workload actually requires</td></tr>
+          <tr><td>Ephemeral CI / build pipelines</td><td>Balanced</td><td>Needs package registries and possibly artifact storage, but no reason to reach arbitrary hosts</td></tr>
+        </table>
+      </div>
+
+      <div class="quiz" data-quiz>
+        <span class="qlabel">Check your understanding</span>
+        <div class="qtext">A CI pipeline builds a project and installs dependencies from your private package registry — nothing else. Which policy fits best?</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Open — CI might need to reach anything</div>
+        <div class="qopt" data-correct="true"><input type="radio" name="q1"> Balanced — scoped to the registries it actually needs</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Locked Down — CI should never need the network</div>
+        <div class="qfeedback"></div>
+      </div>
+    </section>
+
+    <!-- STACKGEN ANGLE -->
+    <section>
+      <span class="eyebrow">the broader pattern</span>
+      <h2>Ephemeral and policy-governed is becoming the default shape</h2>
+      <p>What ties these three use cases together isn't agents, or security research, or CI specifically — it's a shape: an environment that's cheap enough to throw away that you stop trying to keep it clean, paired with a policy that's explicit enough that "throwaway" doesn't mean "unrestricted." That combination is showing up everywhere platform teams provision environments on someone else's behalf, not just where AI agents are involved.</p>
+      <p>That's the same shape we design for at StackGen when generating infrastructure: environments that are disposable by default and governed by an explicit, centrally defined policy rather than by whoever happened to configure that particular instance. Sandboxes, preview environments, CI runners, and agent workspaces are different names for the same underlying pattern — and the platforms that treat it as one problem, not four, are the ones that scale it without re-solving it each time.</p>
+
+      <a class="cta-card" href="https://docs.stackgen.com" target="_blank" rel="noopener">
+        <div class="eyebrow-i">StackGen</div>
+        <div class="title">See ephemeral, policy-governed environments applied to infrastructure</div>
+        <div class="why">The same disposable-by-default, policy-first pattern from this post, generalized to how StackGen provisions infrastructure.</div>
+        <span class="go">Read the docs →</span>
+      </a>
+    </section>
+
+    <!-- FINAL QUIZ -->
+    <section>
+      <span class="eyebrow">check what you've learned</span>
+      <h2>Four-question recap</h2>
+      <div class="fq-box">
+        <div class="fq-progress"><span id="fqPos">Q 1 / 4</span><span></span></div>
+        <div class="fq-bar"><div class="fq-bar-fill" id="fqBarFill"></div></div>
+        <div id="fqQuestion"></div>
+        <div class="fq-nav">
+          <button class="btn ghost" id="fqPrev" disabled>Back</button>
+          <button class="btn" id="fqNext">Next</button>
+        </div>
+        <div class="fq-result" id="fqResult">
+          <div class="fq-score" id="fqScoreFinal"></div>
+          <p id="fqScoreLabel"></p>
+          <button class="btn" id="fqRestart">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLASHCARDS -->
+    <section>
+      <span class="eyebrow">flashcards</span>
+      <h2>Click to reveal</h2>
+      <div class="fc-grid" id="fcGrid"></div>
+    </section>
+
+    <!-- NEXT STEPS -->
+    <section>
+      <span class="eyebrow">next steps</span>
+      <h2>Where to go from here</h2>
+      <div class="ns-grid">
+        <a class="ns-card" href="https://www.infoworld.com/article/4177309/docker-sandboxes-and-microvms-explained.html" target="_blank" rel="noopener">
+          <div class="title">Docker Sandboxes and microVMs, explained ↗</div>
+          <div class="why">Background on how the same microVM design generalizes past agentic workloads — the source for the use cases in this post.</div>
+        </a>
+        <a class="ns-card" href="https://docs.docker.com/ai/sandboxes/governance/" target="_blank" rel="noopener">
+          <div class="title">Docker AI Governance documentation ↗</div>
+          <div class="why">For teams that need the network and filesystem policies above enforced centrally, not just per machine.</div>
+        </a>
+        <a class="ns-card" href="https://github.com/firecracker-microvm/firecracker" target="_blank" rel="noopener">
+          <div class="title">Firecracker on GitHub ↗</div>
+          <div class="why">The open-source microVM project behind the boot-time numbers referenced throughout this series.</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>Blog · Use Cases · Sandboxing</footer>
+</div>
+
+<script>
+(function(){
+  var revealEls = document.querySelectorAll('section');
+  revealEls.forEach(function(el){ el.classList.add('reveal'); });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  }, {threshold:0.08});
+  revealEls.forEach(function(el){ io.observe(el); });
+
+  /* use-case picker */
+  var caseData = {
+    malware: {verdict:"Run the sample, not your workstation.", text:"A suspicious binary gets executed inside a sandbox instead of a researcher's real machine or a shared analysis VM. Because microVMs boot in roughly a tenth of a second rather than tens of seconds, the same sample can be run through many different tool configurations — different debuggers, different monitoring setups — in the time one full-VM run would take.", policy:"Policy: Locked Down (containment) or Balanced-to-decoy (behavioral study)"},
+    untrusted: {verdict:"Let strangers run code without trusting them.", text:"A platform that lets users upload and execute their own code — a coding playground, a notebook service, a plugin marketplace — can run each submission in its own sandbox and simply terminate it when it's done or a resource quota is hit, with no risk to the platform's own infrastructure or other users' data.", policy:"Policy: Balanced or Locked Down, scoped to only what the runtime needs"},
+    ci: {verdict:"Give every commit a clean, disposable machine.", text:"Build pipelines already fight dependency-confusion and supply-chain attacks from compromised or typo-squatted packages. Running each build in a fresh sandbox with a scoped network policy keeps a poisoned dependency from reaching the builder host — and fast boot times mean every commit can get this treatment, not just merges to main.", policy:"Policy: Balanced, scoped to package registries and artifact storage"}
+  };
+  document.querySelectorAll('.case-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.case-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var d = caseData[btn.dataset.case];
+      document.getElementById('casePanel').innerHTML = '<div class="verdict">'+d.verdict+'</div><div>'+d.text+'</div><span class="policy-tag">'+d.policy+'</span>';
+    });
+  });
+  document.querySelector('.case-btn').click();
+
+  /* inline quiz */
+  document.querySelectorAll('[data-quiz]').forEach(function(quiz){
+    var opts = quiz.querySelectorAll('.qopt');
+    var fb = quiz.querySelector('.qfeedback');
+    opts.forEach(function(opt){
+      opt.addEventListener('click', function(){
+        var input = opt.querySelector('input'); input.checked = true;
+        opts.forEach(function(o){ o.classList.remove('correct','incorrect'); });
+        var isCorrect = opt.dataset.correct === 'true';
+        opt.classList.add(isCorrect ? 'correct' : 'incorrect');
+        if(!isCorrect){ opts.forEach(function(o){ if(o.dataset.correct==='true'){ o.classList.add('correct'); } }); }
+        fb.textContent = isCorrect ? "Right — scope the policy to exactly what the workload needs, not to a category default." : "Not quite — think about the narrowest policy that still lets this specific task finish.";
+        fb.className = 'qfeedback show ' + (isCorrect ? 'ok' : 'no');
+      });
+    });
+  });
+
+  /* final quiz */
+  var fq = [
+    {q:"What part of a Docker Sandbox's design changes most between use cases?", opts:["The microVM kernel boundary","The network policy","The concept of a private daemon","Nothing changes between use cases"], correct:1},
+    {q:"Why might a malware analyst deliberately allow some outbound network access instead of locking it down completely?", opts:["To make analysis faster","To observe C2/exfiltration behavior instead of silently blocking it","Because Locked Down isn't supported for malware","It's required by the sandbox software"], correct:1},
+    {q:"Why does fast boot time matter more for CI and malware analysis than for a single agent session?", opts:["It doesn't — boot time is irrelevant to both","These workloads repeat the same kind of run many times, so boot time compounds into throughput","CI and malware analysis don't use sandboxes","Because agents don't need isolation at all"], correct:1},
+    {q:"What's the recommended default policy for most ephemeral CI builds?", opts:["Open","Balanced, scoped to registries and artifact storage","Locked Down, no exceptions","Whatever the previous build used"], correct:1}
+  ];
+  var fqIndex = 0, fqAnswers = new Array(fq.length).fill(null);
+  function renderFq(){
+    var item = fq[fqIndex];
+    document.getElementById('fqPos').textContent = 'Q ' + (fqIndex+1) + ' / ' + fq.length;
+    document.getElementById('fqBarFill').style.width = (((fqIndex+1)/fq.length)*100) + '%';
+    var html = '<div class="qtext" style="margin-bottom:14px;">' + item.q + '</div>';
+    item.opts.forEach(function(opt,i){
+      var picked = fqAnswers[fqIndex]; var cls='';
+      if(picked !== null){ if(i===item.correct) cls=' correct'; else if(i===picked) cls=' incorrect'; }
+      html += '<div class="qopt'+cls+'" data-i="'+i+'"><input type="radio" name="fqopt" '+(picked===i?'checked':'')+'> '+opt+'</div>';
+    });
+    document.getElementById('fqQuestion').innerHTML = html;
+    document.getElementById('fqPrev').disabled = fqIndex === 0;
+    document.getElementById('fqNext').textContent = fqIndex === fq.length-1 ? 'Finish' : 'Next';
+    document.querySelectorAll('#fqQuestion .qopt').forEach(function(opt){
+      opt.addEventListener('click', function(){
+        if(fqAnswers[fqIndex] !== null) return;
+        fqAnswers[fqIndex] = parseInt(opt.dataset.i,10);
+        renderFq();
+      });
+    });
+  }
+  document.getElementById('fqNext').addEventListener('click', function(){
+    if(fqIndex < fq.length-1){ fqIndex++; renderFq(); }
+    else{
+      var score = fqAnswers.reduce(function(acc,a,i){ return acc + (a===fq[i].correct?1:0); },0);
+      document.getElementById('fqScoreFinal').textContent = score + ' / ' + fq.length;
+      document.getElementById('fqScoreLabel').textContent =
+        score === fq.length ? "Perfect — the pattern generalizes cleanly." :
+        score >= fq.length-1 ? "Almost — worth a quick re-read above." :
+        "Worth another pass through the use-case and policy sections.";
+      document.getElementById('fqResult').classList.add('show');
+      document.getElementById('fqQuestion').style.display='none';
+      document.querySelector('.fq-nav').style.display='none';
+    }
+  });
+  document.getElementById('fqPrev').addEventListener('click', function(){ if(fqIndex>0){ fqIndex--; renderFq(); } });
+  document.getElementById('fqRestart').addEventListener('click', function(){
+    fqIndex=0; fqAnswers = new Array(fq.length).fill(null);
+    document.getElementById('fqResult').classList.remove('show');
+    document.getElementById('fqQuestion').style.display='';
+    document.querySelector('.fq-nav').style.display='';
+    renderFq();
+  });
+  renderFq();
+
+  /* flashcards */
+  var cards = [
+    {q:"What stays constant across all use cases in this post?", a:"The microVM isolation boundary and the private, disposable Docker daemon — the same primitive underneath every case."},
+    {q:"What should change per use case?", a:"The network policy — what the sandbox is allowed to reach should match the specific workload, not a one-size-fits-all default."},
+    {q:"Why isn't \"cut the network entirely\" always right for malware analysis?", a:"It can hide the exact behavior — C2 callbacks, exfiltration attempts — that the analysis is trying to observe."},
+    {q:"Roughly how many microVM launches fit in the time one full-VM boot takes?", a:"On the order of a few hundred, based on ~125ms vs. ~30-60s boot times — before accounting for the actual workload's own runtime."},
+    {q:"What's the recommended policy for a platform running arbitrary user-submitted code?", a:"Balanced or Locked Down, scoped tightly to whatever the runtime actually needs — not Open by default."}
+  ];
+  var fcGrid = document.getElementById('fcGrid');
+  cards.forEach(function(c){
+    var el = document.createElement('div');
+    el.className='flashcard'; el.tabIndex=0;
+    el.innerHTML = '<div class="fc-inner"><div class="fc-face fc-front">'+c.q+'<span class="fc-hint">click to flip</span></div><div class="fc-face fc-back">'+c.a+'</div></div>';
+    el.addEventListener('click', function(){ el.classList.toggle('flipped'); });
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.classList.toggle('flipped'); } });
+    fcGrid.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Building Your First Agentic Stack with Docker Compose</title>
+<meta name="description" content="A step-by-step tutorial on defining a model, an MCP Gateway, and a LangGraph agent together in one compose.yaml — and launching the whole stack with a single docker compose up.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #9437FF;
+    --purple-deep: #6B21C9;
+    --pink: #F73DF1;
+    --blue: #3FD9FB;
+    --ink: #171321;
+    --ink-soft: #4a4658;
+    --ink-dim: #7d7a89;
+    --line: #ECE7F5;
+    --surface: #FFFFFF;
+    --surface-tint: #FAF8FE;
+    --term-bg: #14111c;
+    --term-line: #ffffff14;
+    --green: #4ADE80;
+    --red: #FF4747;
+    --radius-lg: 20px;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", "SF Mono", Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(148,55,255,0.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(247,61,241,0.05), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 50% 100%, rgba(63,217,251,0.05), transparent 60%),
+      var(--surface);
+    line-height: 1.6;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--purple-deep); }
+  a:hover{ color: var(--pink); }
+  ::selection{ background: var(--pink); color: #fff; }
+  :focus-visible{ outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 4px; }
+
+  .page{ max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+  .crumb{ font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); margin-bottom: 26px; }
+  .crumb a{ color: var(--ink-soft); text-decoration:none; }
+  .crumb a:hover{ color: var(--purple); }
+
+  .kicker{ display:inline-flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: linear-gradient(90deg, var(--purple), var(--pink)); padding: 6px 14px; border-radius: 999px; margin-bottom: 18px; }
+
+  h1{ font-weight: 600; font-size: clamp(1.85rem, 4.6vw, 2.6rem); line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 16px; }
+  .lede{ font-size: 1.08rem; color: var(--ink-soft); max-width: 62ch; margin: 0 0 26px; }
+  .meta-bar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 44px; }
+  .chip{ font-family: var(--mono); font-size: 12px; color: var(--ink-soft); background: var(--surface-tint); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
+  .chip b{ color: var(--purple-deep); font-weight: 600; }
+
+  section{ margin-bottom: 56px; }
+  .eyebrow{ display:flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--purple-deep); margin-bottom: 14px; }
+  .eyebrow::before{ content:""; width:16px; height:2px; background: linear-gradient(90deg,var(--purple),var(--pink)); border-radius:2px; }
+  h2{ font-weight: 600; font-size: 1.55rem; letter-spacing: -0.02em; margin: 0 0 16px; }
+  h3{ font-weight: 600; font-size: 1rem; margin: 20px 0 10px; color: var(--purple-deep); }
+  p{ margin: 0 0 14px; color: var(--ink-soft); }
+  section > p:last-child{ margin-bottom:0; }
+  strong{ color: var(--ink); }
+  code{ font-family: var(--mono); font-size: 0.87em; background: var(--surface-tint); border: 1px solid var(--line); padding: 2px 6px; border-radius: 5px; color: var(--purple-deep); }
+
+  .reveal{ opacity:0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  .def-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin: 18px 0 8px; }
+  .def-card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .def-card .term{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+  .def-card .body{ font-size:0.9rem; color: var(--ink-dim); margin:0; }
+
+  .term-label{ font-family: var(--mono); font-size: 11.5px; text-transform:uppercase; letter-spacing:0.1em; color: var(--ink-dim); margin-bottom:8px; }
+  .terminal{ background: var(--term-bg); border-radius: var(--radius); overflow:hidden; margin: 8px 0 22px; box-shadow: 0 12px 32px rgba(23,19,33,0.18); }
+  .terminal .bar{ display:flex; gap:6px; padding:10px 14px; background:#1c1826; border-bottom:1px solid var(--term-line); }
+  .terminal .dot{ width:10px;height:10px;border-radius:50%; }
+  .dot.r{ background:#FF474766; } .dot.y{ background:#FBC47366; } .dot.g{ background:#4ADE8066; }
+  .terminal pre{ margin:0; padding:16px 18px; font-family: var(--mono); font-size:0.84rem; line-height:1.7; overflow-x:auto; color:#e9e6f2; }
+  .terminal .c{ color:#8b869e; }
+
+  /* unified annotated-code widget */
+  .code-widget{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px; margin: 16px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .code-widget-head{ text-align:center; padding: 2px 0 10px; }
+  .code-widget-title{ font-family: var(--mono); font-size:12.5px; font-weight:600; letter-spacing:0.08em; color: var(--ink-soft); text-transform: uppercase; margin:0 0 4px; }
+  .code-widget-sub{ font-size:0.83rem; color: var(--ink-dim); }
+  .code-wrap{ display:grid; grid-template-columns: 1.15fr 1fr; gap:8px; align-items:start; }
+  .code-panel{ background: var(--term-bg); border-radius: var(--radius-sm); padding:10px 0; font-family: var(--mono); font-size:0.78rem; line-height:1.5; overflow-x:auto; }
+  .code-panel pre{ margin:0; padding:0 12px; }
+  .cline{ display:block; padding:1px 8px 1px 10px; border-left:3px solid transparent; border-radius:3px; cursor:pointer; white-space:pre; color:#e9e6f2; transition: background .15s, border-color .15s; }
+  .cline.group{ margin-top:8px; }
+  .cline:hover{ background: rgba(148,55,255,0.16); }
+  .cline.active{ background: rgba(247,61,241,0.18); border-left-color: var(--pink); color:#fff; }
+  .cline.no-note{ cursor:default; } .cline.no-note:hover{ background:none; }
+  .code-note{ background: var(--surface-tint); border-radius: var(--radius-sm); padding:12px 14px; font-size:0.87rem; color: var(--ink-soft); }
+  .code-note .tag{ font-family: var(--mono); font-size:13px; font-weight:600; color: var(--purple-deep); display:block; margin-bottom:6px; }
+  .code-note-tip{ margin-top:10px; background: rgba(148,55,255,0.08); border-left:3px solid var(--purple); border-radius:0 4px 4px 0; padding:7px 11px; font-size:0.82rem; color: var(--purple-deep); }
+  .code-hint{ font-size:0.76rem; color: var(--ink-dim); margin:8px 2px 0; }
+  @media (max-width:640px){ .code-wrap{ grid-template-columns:1fr; } }
+
+  .quiz{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 22px 0; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .quiz .qlabel{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--purple-deep); margin-bottom:8px; display:block; font-weight:600; }
+  .quiz .qtext{ font-weight:600; margin-bottom:14px; color: var(--ink); }
+  .qopt{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius: var(--radius-sm); margin-bottom:8px; cursor:pointer; font-size:0.92rem; transition: border-color .15s, background .15s; }
+  .qopt:hover{ border-color: var(--purple); }
+  .qopt.correct{ border-color: var(--green); background: rgba(74,222,128,0.1); }
+  .qopt.incorrect{ border-color: var(--red); background: rgba(255,71,71,0.08); }
+  .qopt input{ margin-top:3px; accent-color: var(--purple); }
+  .qfeedback{ font-size:0.87rem; margin-top:10px; padding:10px 12px; border-radius: var(--radius-sm); display:none; }
+  .qfeedback.show{ display:block; }
+  .qfeedback.ok{ background: rgba(74,222,128,0.12); color:#1c8a4d; }
+  .qfeedback.no{ background: rgba(255,71,71,0.1); color:#c1272d; }
+
+  .callout{ border-radius: var(--radius); padding: 18px 20px; margin: 18px 0; border:1px solid rgba(255,71,71,0.25); background: rgba(255,71,71,0.05); }
+  .callout .tag{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#c1272d; display:block; margin-bottom:10px; font-weight:600; }
+  .callout .belief{ font-style: italic; color: var(--ink-soft); margin-bottom:12px; }
+  .callout .reality-label{ font-weight:600; color: var(--purple-deep); font-size:0.85rem; margin-bottom:4px; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  .fq-box{ background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:22px 24px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .fq-progress{ display:flex; justify-content:space-between; font-family: var(--mono); font-size:0.75rem; color: var(--ink-dim); margin-bottom:16px; }
+  .fq-bar{ height:4px; background: var(--line); border-radius:2px; overflow:hidden; margin-bottom:20px; }
+  .fq-bar-fill{ height:100%; background: linear-gradient(90deg,var(--purple),var(--pink)); transition: width .3s ease; width:25%; }
+  .fq-nav{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn{ font-family: var(--sans); font-weight:600; font-size:0.9rem; border:none; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:10px 22px; border-radius:999px; cursor:pointer; transition: transform .15s, box-shadow .15s; box-shadow: 0 8px 20px rgba(148,55,255,0.25); }
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 12px 26px rgba(148,55,255,0.35); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn.ghost{ background: var(--surface); color: var(--purple-deep); border: 1.5px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover{ border-color: var(--purple); }
+  .fq-result{ text-align:center; padding:20px 0 6px; display:none; }
+  .fq-result.show{ display:block; }
+  .fq-score{ font-size:2.3rem; font-weight:700; background: linear-gradient(90deg,var(--purple),var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .fc-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:18px 0; }
+  .flashcard{ perspective:1200px; height:150px; cursor:pointer; }
+  .fc-inner{ position:relative; width:100%; height:100%; transition: transform .5s; transform-style: preserve-3d; }
+  .flashcard.flipped .fc-inner{ transform: rotateY(180deg); }
+  .fc-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius: var(--radius); border:1px solid var(--line); padding:16px 18px; display:flex; align-items:center; font-size:0.87rem; box-shadow: 0 8px 22px rgba(148,55,255,0.08); }
+  .fc-front{ background: var(--surface); color: var(--ink); }
+  .fc-back{ background: linear-gradient(135deg, var(--purple), var(--pink)); color:#fff; transform: rotateY(180deg); font-family: var(--mono); font-size:0.8rem; }
+  .fc-hint{ font-family: var(--mono); font-size:0.66rem; color: var(--ink-dim); position:absolute; bottom:10px; right:14px; }
+
+  .cta-card{ display:block; text-decoration:none; background: linear-gradient(120deg, var(--purple), var(--pink) 60%, var(--blue)); border-radius: var(--radius-lg); padding: 24px 26px; color: #fff; margin-bottom: 16px; box-shadow: 0 16px 40px rgba(148,55,255,0.28); transition: transform .15s; }
+  .cta-card:hover{ transform: translateY(-2px); }
+  .cta-card .eyebrow-i{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.12em; opacity:0.85; margin-bottom:8px; }
+  .cta-card .title{ font-size:1.15rem; font-weight:700; margin-bottom:6px; }
+  .cta-card .why{ font-size:0.9rem; opacity:0.92; max-width:56ch; }
+  .cta-card .go{ display:inline-block; margin-top:12px; font-weight:600; font-size:0.87rem; }
+
+  .ns-grid{ display:flex; flex-direction:column; gap:12px; }
+  .ns-card{ display:block; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:14px 16px; text-decoration:none; transition: border-color .15s, transform .15s; }
+  .ns-card:hover{ border-color: var(--purple); transform: translateX(3px); }
+  .ns-card .title{ color: var(--purple-deep); font-weight:600; font-size:0.95rem; margin-bottom:3px; }
+  .ns-card .why{ color: var(--ink-dim); font-size:0.84rem; }
+
+  footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="crumb reveal in"><a href="#">Blog</a> › Tutorials › Agentic Stacks</div>
+
+  <header class="reveal in">
+    <span class="kicker">Tutorial · Level 2</span>
+    <h1>Building Your First Agentic Stack with Docker Compose</h1>
+    <p class="lede">Models, tools, and agent code together, defined once, launched with one command. No SDK-hopping, no hand-written glue between three different services that were never designed to talk to each other.</p>
+    <div class="meta-bar">
+      <span class="chip">Estimated time <b>14 min</b></span>
+      <span class="chip">Difficulty <b>intro–intermediate</b></span>
+      <span class="chip">Requires <b>Docker Compose</b></span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- PROBLEM -->
+    <section>
+      <span class="eyebrow">the problem</span>
+      <h2>Agent stacks usually start as a patchwork</h2>
+      <p>A working agent needs at least three things: a model to reason with, a set of tools it can actually call, and application code that ties the two together with your business logic. In practice, those three pieces tend to come from three different places — a hosted model API with its own SDK, a hand-rolled integration for each tool you want the agent to use, and a bespoke script wiring credentials and endpoints between them. None of it was built to be composed; it just eventually is, through trial and error.</p>
+      <p>Docker Compose already solves this class of problem for ordinary multi-service apps — a database, an API, a frontend, one file, one command. The same shape works for agent stacks once you treat the model and the tool layer as services too.</p>
+
+      <div class="def-grid">
+        <div class="def-card"><div class="term">Model Runner</div><p class="body">Runs an open-weight model locally and exposes it through an OpenAI-compatible endpoint — no separate model server to stand up by hand.</p></div>
+        <div class="def-card"><div class="term">MCP Gateway</div><p class="body">A single service that hosts one or more Model Context Protocol tool servers and exposes them to your agent over one endpoint, instead of one integration per tool.</p></div>
+        <div class="def-card"><div class="term">compose.yaml</div><p class="body">The one file where the model, the gateway, and your agent's code are all declared together — and the only thing you hand anyone else who needs to run the stack.</p></div>
+      </div>
+    </section>
+
+    <!-- PREREQUISITES -->
+    <section>
+      <span class="eyebrow">prerequisites</span>
+      <h2>What you need before you start</h2>
+      <p>A recent Docker Desktop with Compose v2 and Model Runner support, and enough local RAM to run a small open-weight model comfortably — a 4B-parameter model at 4-bit quantization is a reasonable default for following along on a laptop.</p>
+      <div class="term-label">Verify your setup</div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <pre><span class="c"># Confirm Compose is available and check the version</span>
+docker compose version</pre>
+      </div>
+    </section>
+
+    <!-- STEP BY STEP -->
+    <section>
+      <span class="eyebrow">step-by-step</span>
+      <h2>One compose.yaml, three services</h2>
+      <p>Three services go in the same file: the model, the MCP Gateway, and the agent itself. Click through the annotated version below before you write your own.</p>
+
+      <div class="code-widget">
+        <div class="code-widget-head">
+          <div class="code-widget-title">compose.yaml — agentic stack anatomy</div>
+          <div class="code-widget-sub">Click any highlighted line to learn what it does</div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-panel"><pre id="composeCode"></pre></div>
+          <div class="code-note" id="composeNote">
+            <span class="tag">Click a line to start</span>
+            Select any highlighted line on the left to see what it controls.
+          </div>
+        </div>
+        <div class="code-hint">Lines that don't highlight on hover are plain YAML structure — nothing to click.</div>
+      </div>
+
+      <h3>Launch the whole stack</h3>
+      <p>With the file saved, one command builds the agent image, pulls the model and gateway images, and starts all three services wired together:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <pre><span class="c"># First run pulls the model — this can take a few minutes</span>
+docker compose up
+
+<span class="c"># Rebuild the agent image after code changes, then relaunch</span>
+docker compose up --build</pre>
+      </div>
+
+      <div class="quiz" data-quiz>
+        <span class="qlabel">Check your understanding</span>
+        <div class="qtext">Your agent service needs to reach the MCP Gateway's tools. Where does that connection actually get configured?</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Hard-coded inside the agent's Python source</div>
+        <div class="qopt" data-correct="true"><input type="radio" name="q1"> An environment variable pointing at the gateway service's compose network address</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> A separate SDK installed just for tool discovery</div>
+        <div class="qfeedback"></div>
+      </div>
+    </section>
+
+    <!-- FRAMEWORK INTEGRATION -->
+    <section>
+      <span class="eyebrow">framework integration</span>
+      <h2>Wiring it into LangGraph</h2>
+      <p>The agent service itself can run any framework that speaks to an OpenAI-compatible endpoint and an MCP-compatible tool server — Compose doesn't care which one. Here's the LangGraph side of the same wiring, using the environment variables the compose file above defined:</p>
+      <div class="term-label">agent/app.py</div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <pre><span class="c">import os
+from langchain_openai import ChatOpenAI
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+# Model endpoint comes straight from the compose environment</span>
+llm = ChatOpenAI(
+    base_url=os.environ["MODEL_RUNNER_URL"],
+    model=os.environ["MODEL_RUNNER_MODEL"],
+    api_key="not-needed-for-local-model",
+)
+
+<span class="c"># Tools come from the MCP Gateway, over the network Compose created</span>
+mcp_client = MultiServerMCPClient({
+    "gateway": {"url": os.environ["MCPGATEWAY_ENDPOINT"], "transport": "sse"}
+})</pre>
+      </div>
+      <p>Swap this file for a CrewAI agent definition and nothing about the compose file changes — both frameworks just need a model URL and a tool endpoint, and Compose already handed them both.</p>
+
+      <div class="callout">
+        <span class="tag">Common misconception</span>
+        <p class="belief">"I need a different SDK and a custom auth flow for every tool my agent uses."</p>
+        <div class="reality-label">What's actually true</div>
+        <p>That's true if each tool is its own bespoke integration. It stops being true once every tool sits behind one MCP Gateway speaking one protocol — the agent framework only ever needs to know about the gateway, never about the individual tools behind it.</p>
+      </div>
+    </section>
+
+    <!-- STACKGEN ANGLE -->
+    <section>
+      <span class="eyebrow">the same idea, one layer up</span>
+      <h2>One file, one command, declared intent</h2>
+      <p>What actually made this tutorial short is that <code>compose.yaml</code> describes intent — "this model, these tools, this code, wired together" — and Compose is the layer that turns that declaration into a running system, in the right order, without you scripting the startup sequence by hand.</p>
+      <p>That's the same philosophy behind StackGen's Intent-to-Infrastructure approach: describe what you want running, and let the platform generate and wire up the actual infrastructure to match, rather than hand-assembling it service by service. A three-service agent stack and a full cloud environment are different sizes of the same problem — declare the intent once, get a running system back.</p>
+
+      <a class="cta-card" href="https://docs.stackgen.com" target="_blank" rel="noopener">
+        <div class="eyebrow-i">StackGen</div>
+        <div class="title">See "one file, one command" applied to full infrastructure</div>
+        <div class="why">The same declarative-intent-to-running-system idea from this compose file, generalized to entire cloud environments.</div>
+        <span class="go">Read the docs →</span>
+      </a>
+    </section>
+
+    <!-- FINAL QUIZ -->
+    <section>
+      <span class="eyebrow">check what you've learned</span>
+      <h2>Four-question recap</h2>
+      <div class="fq-box">
+        <div class="fq-progress"><span id="fqPos">Q 1 / 4</span><span></span></div>
+        <div class="fq-bar"><div class="fq-bar-fill" id="fqBarFill"></div></div>
+        <div id="fqQuestion"></div>
+        <div class="fq-nav">
+          <button class="btn ghost" id="fqPrev" disabled>Back</button>
+          <button class="btn" id="fqNext">Next</button>
+        </div>
+        <div class="fq-result" id="fqResult">
+          <div class="fq-score" id="fqScoreFinal"></div>
+          <p id="fqScoreLabel"></p>
+          <button class="btn" id="fqRestart">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLASHCARDS -->
+    <section>
+      <span class="eyebrow">flashcards</span>
+      <h2>Click to reveal</h2>
+      <div class="fc-grid" id="fcGrid"></div>
+    </section>
+
+    <!-- NEXT STEPS -->
+    <section>
+      <span class="eyebrow">next steps</span>
+      <h2>Where to go from here</h2>
+      <div class="ns-grid">
+        <a class="ns-card" href="https://github.com/docker/compose-for-agents" target="_blank" rel="noopener">
+          <div class="title">docker/compose-for-agents on GitHub ↗</div>
+          <div class="why">Ready-to-run examples across LangGraph, CrewAI, ADK, Spring AI, and more — the same pattern as this tutorial, in more configurations.</div>
+        </a>
+        <a class="ns-card" href="https://docs.docker.com/guides/agentic-ai/" target="_blank" rel="noopener">
+          <div class="title">Build agentic AI applications with Docker ↗</div>
+          <div class="why">Docker's own guide covering Model Runner and MCP Gateway in more depth than fits in one tutorial.</div>
+        </a>
+        <a class="ns-card" href="https://docs.docker.com/ai/mcp-gateway/" target="_blank" rel="noopener">
+          <div class="title">MCP Gateway documentation ↗</div>
+          <div class="why">Every gateway flag and configuration option, for adding more tool servers than the single example here.</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>Blog · Tutorials · Agentic Stacks</footer>
+</div>
+
+<script>
+(function(){
+  var revealEls = document.querySelectorAll('section');
+  revealEls.forEach(function(el){ el.classList.add('reveal'); });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  }, {threshold:0.08});
+  revealEls.forEach(function(el){ io.observe(el); });
+
+  /* annotated compose.yaml */
+  var composeLines = [
+    {t:"services:", note:null},
+    {t:"  agent:", note:"Your application code — the LangGraph or CrewAI agent, framework-agnostic from Compose's point of view."},
+    {t:"    build: ./agent", note:"Builds the agent's image from a local Dockerfile, so its dependencies (LangGraph, MCP client libraries) are baked in."},
+    {t:"    ports:", note:null, group:true},
+    {t:"      - \"8080:8080\"", note:"Exposes the agent's own web UI or API on your host, so you can actually talk to it once the stack is up."},
+    {t:"    environment:", note:null, group:true},
+    {t:"      - MCPGATEWAY_ENDPOINT=http://mcp-gateway:8811/sse", note:"Points the agent at the gateway service by its Compose service name — Compose's internal DNS resolves \"mcp-gateway\" automatically, no IP addresses involved.", tip:"This one line replaces what would otherwise be a custom integration per tool."},
+    {t:"    depends_on:", note:null, group:true},
+    {t:"      - mcp-gateway", note:"Tells Compose to start the gateway before the agent, so the agent isn't trying to connect before its dependency exists."},
+    {t:"    models:", note:null, group:true},
+    {t:"      gemma3:", note:null},
+    {t:"        endpoint_var: MODEL_RUNNER_URL", note:"Compose injects the running model's OpenAI-compatible endpoint into this environment variable automatically — no hardcoded URL to keep in sync."},
+    {t:"        model_var: MODEL_RUNNER_MODEL", note:"Injects the model's identifier the same way, so the agent code never hardcodes a model name either."},
+    {t:"", note:null},
+    {t:"  mcp-gateway:", note:null, group:true},
+    {t:"    image: docker/mcp-gateway:latest", note:"The official gateway image — one service that can host many MCP tool servers behind a single endpoint."},
+    {t:"    command:", note:null},
+    {t:"      - --servers=duckduckgo,filesystem", note:"Which MCP tool servers this gateway loads and exposes to any connected agent. Add more by adding names here, not by wiring up new integrations."},
+    {t:"    volumes:", note:null},
+    {t:"      - /var/run/docker.sock:/var/run/docker.sock", note:"Lets the gateway spawn and manage the containers each tool server actually runs in — this is how it hosts multiple tools from one service definition."},
+    {t:"", note:null},
+    {t:"models:", note:null, group:true},
+    {t:"  gemma3:", note:null},
+    {t:"    model: ai/gemma3:4B-Q4_0", note:"The top-level model definition — a small, quantized open-weight model, pulled and run locally by Docker's Model Runner."},
+    {t:"    context_size: 10000", note:"Sets how much conversation and tool output the model can hold at once — raise this if your agent's tool calls return large results."}
+  ];
+  var codeEl = document.getElementById('composeCode');
+  composeLines.forEach(function(line){
+    var span = document.createElement('span');
+    span.className = 'cline' + (line.note ? '' : ' no-note') + (line.group ? ' group' : '');
+    span.textContent = line.t;
+    if(line.note){ span.dataset.note = line.note; }
+    if(line.tip){ span.dataset.tip = line.tip; }
+    codeEl.appendChild(span);
+    codeEl.appendChild(document.createTextNode('\n'));
+  });
+  codeEl.querySelectorAll('.cline').forEach(function(span){
+    if(!span.dataset.note) return;
+    span.addEventListener('click', function(){
+      codeEl.querySelectorAll('.cline').forEach(function(s){ s.classList.remove('active'); });
+      span.classList.add('active');
+      var html = '<span class="tag">' + span.textContent.trim() + '</span>' + span.dataset.note;
+      if(span.dataset.tip){ html += '<div class="code-note-tip">' + span.dataset.tip + '</div>'; }
+      document.getElementById('composeNote').innerHTML = html;
+    });
+  });
+
+  /* inline quiz */
+  document.querySelectorAll('[data-quiz]').forEach(function(quiz){
+    var opts = quiz.querySelectorAll('.qopt');
+    var fb = quiz.querySelector('.qfeedback');
+    opts.forEach(function(opt){
+      opt.addEventListener('click', function(){
+        var input = opt.querySelector('input'); input.checked = true;
+        opts.forEach(function(o){ o.classList.remove('correct','incorrect'); });
+        var isCorrect = opt.dataset.correct === 'true';
+        opt.classList.add(isCorrect ? 'correct' : 'incorrect');
+        if(!isCorrect){ opts.forEach(function(o){ if(o.dataset.correct==='true'){ o.classList.add('correct'); } }); }
+        fb.textContent = isCorrect ? "Right — Compose's own service DNS plus an env var replaces what used to be custom glue code." : "Not quite — look at how the agent service references the gateway by name in the compose file.";
+        fb.className = 'qfeedback show ' + (isCorrect ? 'ok' : 'no');
+      });
+    });
+  });
+
+  /* final quiz */
+  var fq = [
+    {q:"What does Docker's Model Runner expose a local model through?", opts:["A proprietary SDK","An OpenAI-compatible endpoint","A GraphQL API","A raw TCP socket only"], correct:1},
+    {q:"Why does the MCP Gateway service need the Docker socket mounted?", opts:["To speed up image pulls","So it can spawn and manage the containers each tool server runs in","To access the host's GPU","It doesn't need it — that's optional"], correct:1},
+    {q:"How does the agent service find the model's endpoint without a hardcoded URL?", opts:["It guesses based on the port","Through the environment variable named in the model's endpoint_var field","It doesn't — URLs are always hardcoded","Via a separate discovery service"], correct:1},
+    {q:"What has to change in the compose file to swap the agent from LangGraph to CrewAI?", opts:["The model and gateway services must be rewritten","Very little — both just need a model URL and a tool endpoint, which the file already provides","The MCP Gateway must be replaced","Nothing can be swapped without starting over"], correct:1}
+  ];
+  var fqIndex = 0, fqAnswers = new Array(fq.length).fill(null);
+  function renderFq(){
+    var item = fq[fqIndex];
+    document.getElementById('fqPos').textContent = 'Q ' + (fqIndex+1) + ' / ' + fq.length;
+    document.getElementById('fqBarFill').style.width = (((fqIndex+1)/fq.length)*100) + '%';
+    var html = '<div class="qtext" style="margin-bottom:14px;">' + item.q + '</div>';
+    item.opts.forEach(function(opt,i){
+      var picked = fqAnswers[fqIndex]; var cls='';
+      if(picked !== null){ if(i===item.correct) cls=' correct'; else if(i===picked) cls=' incorrect'; }
+      html += '<div class="qopt'+cls+'" data-i="'+i+'"><input type="radio" name="fqopt" '+(picked===i?'checked':'')+'> '+opt+'</div>';
+    });
+    document.getElementById('fqQuestion').innerHTML = html;
+    document.getElementById('fqPrev').disabled = fqIndex === 0;
+    document.getElementById('fqNext').textContent = fqIndex === fq.length-1 ? 'Finish' : 'Next';
+    document.querySelectorAll('#fqQuestion .qopt').forEach(function(opt){
+      opt.addEventListener('click', function(){
+        if(fqAnswers[fqIndex] !== null) return;
+        fqAnswers[fqIndex] = parseInt(opt.dataset.i,10);
+        renderFq();
+      });
+    });
+  }
+  document.getElementById('fqNext').addEventListener('click', function(){
+    if(fqIndex < fq.length-1){ fqIndex++; renderFq(); }
+    else{
+      var score = fqAnswers.reduce(function(acc,a,i){ return acc + (a===fq[i].correct?1:0); },0);
+      document.getElementById('fqScoreFinal').textContent = score + ' / ' + fq.length;
+      document.getElementById('fqScoreLabel').textContent =
+        score === fq.length ? "Perfect — the wiring model is fully clear." :
+        score >= fq.length-1 ? "Almost — worth a quick re-read above." :
+        "Worth another pass through the annotated compose file.";
+      document.getElementById('fqResult').classList.add('show');
+      document.getElementById('fqQuestion').style.display='none';
+      document.querySelector('.fq-nav').style.display='none';
+    }
+  });
+  document.getElementById('fqPrev').addEventListener('click', function(){ if(fqIndex>0){ fqIndex--; renderFq(); } });
+  document.getElementById('fqRestart').addEventListener('click', function(){
+    fqIndex=0; fqAnswers = new Array(fq.length).fill(null);
+    document.getElementById('fqResult').classList.remove('show');
+    document.getElementById('fqQuestion').style.display='';
+    document.querySelector('.fq-nav').style.display='';
+    renderFq();
+  });
+  renderFq();
+
+  /* flashcards */
+  var cards = [
+    {q:"What three services make up the agentic stack in this tutorial?", a:"The model, the MCP Gateway, and the agent application — all defined in one compose.yaml."},
+    {q:"What does endpoint_var do in a service's models: block?", a:"Names the environment variable Compose injects with the running model's OpenAI-compatible URL."},
+    {q:"Why does the agent reference \"mcp-gateway\" instead of an IP address?", a:"Compose gives every service DNS resolution by its service name on the shared network — no IPs to track."},
+    {q:"What single command launches the whole stack?", a:"docker compose up — pulls the model and gateway images, builds the agent, and starts all three together."},
+    {q:"Does switching agent frameworks (LangGraph to CrewAI) require changing the model or gateway services?", a:"No — both frameworks just need a model URL and a tool endpoint, which the compose file already provides to either one."}
+  ];
+  var fcGrid = document.getElementById('fcGrid');
+  cards.forEach(function(c){
+    var el = document.createElement('div');
+    el.className='flashcard'; el.tabIndex=0;
+    el.innerHTML = '<div class="fc-inner"><div class="fc-face fc-front">'+c.q+'<span class="fc-hint">click to flip</span></div><div class="fc-face fc-back">'+c.a+'</div></div>';
+    el.addEventListener('click', function(){ el.classList.toggle('flipped'); });
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.classList.toggle('flipped'); } });
+    fcGrid.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>
