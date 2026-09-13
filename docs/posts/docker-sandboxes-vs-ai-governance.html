@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker Sandboxes vs Docker AI Governance: What Each One Actually Does</title>
+<meta name="description" content="Docker Sandboxes and Docker AI Governance solve different-scoped problems — per-agent isolation versus org-wide policy. A clear breakdown of when you need one, both, and what the kit format still can't do yet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #9437FF;
+    --purple-deep: #6B21C9;
+    --pink: #F73DF1;
+    --blue: #3FD9FB;
+    --ink: #171321;
+    --ink-soft: #4a4658;
+    --ink-dim: #7d7a89;
+    --line: #ECE7F5;
+    --surface: #FFFFFF;
+    --surface-tint: #FAF8FE;
+    --term-bg: #14111c;
+    --green: #4ADE80;
+    --amber: #FBC473;
+    --red: #FF4747;
+    --radius-lg: 20px;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", "SF Mono", Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(148,55,255,0.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(247,61,241,0.05), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 50% 100%, rgba(63,217,251,0.05), transparent 60%),
+      var(--surface);
+    line-height: 1.6;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--purple-deep); }
+  a:hover{ color: var(--pink); }
+  ::selection{ background: var(--pink); color: #fff; }
+  :focus-visible{ outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 4px; }
+
+  .page{ max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+  .crumb{ font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); margin-bottom: 26px; }
+  .crumb a{ color: var(--ink-soft); text-decoration:none; }
+  .crumb a:hover{ color: var(--purple); }
+
+  .kicker{ display:inline-flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: linear-gradient(90deg, var(--purple), var(--pink)); padding: 6px 14px; border-radius: 999px; margin-bottom: 18px; }
+
+  h1{ font-weight: 600; font-size: clamp(1.8rem, 4.6vw, 2.5rem); line-height: 1.12; letter-spacing: -0.03em; margin: 0 0 16px; }
+  .lede{ font-size: 1.08rem; color: var(--ink-soft); max-width: 62ch; margin: 0 0 26px; }
+  .meta-bar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 44px; }
+  .chip{ font-family: var(--mono); font-size: 12px; color: var(--ink-soft); background: var(--surface-tint); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
+  .chip b{ color: var(--purple-deep); font-weight: 600; }
+
+  section{ margin-bottom: 54px; }
+  .eyebrow{ display:flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--purple-deep); margin-bottom: 14px; }
+  .eyebrow::before{ content:""; width:16px; height:2px; background: linear-gradient(90deg,var(--purple),var(--pink)); border-radius:2px; }
+  h2{ font-weight: 600; font-size: 1.5rem; letter-spacing: -0.02em; margin: 0 0 16px; }
+  h3{ font-weight: 600; font-size: 1rem; margin: 20px 0 10px; color: var(--purple-deep); }
+  p{ margin: 0 0 14px; color: var(--ink-soft); }
+  section > p:last-child{ margin-bottom:0; }
+  strong{ color: var(--ink); }
+  code{ font-family: var(--mono); font-size: 0.87em; background: var(--surface-tint); border: 1px solid var(--line); padding: 2px 6px; border-radius: 5px; color: var(--purple-deep); }
+
+  .reveal{ opacity:0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  .def-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin: 18px 0 8px; }
+  .def-card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .def-card .term{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+  .def-card .body{ font-size:0.9rem; color: var(--ink-dim); margin:0; }
+
+  .tbl-wrap{ overflow-x:auto; margin: 18px 0; border: 1px solid var(--line); border-radius: var(--radius); }
+  table{ width:100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td{ text-align:left; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  th{ font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple-deep); font-weight: 600; background: var(--surface-tint); }
+  td{ color: var(--ink-soft); }
+  tr td:first-child{ color: var(--ink); font-weight: 500; }
+  tr:last-child td{ border-bottom:none; }
+
+  /* two-state precedence picker */
+  .state-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin: 18px 0 14px; }
+  .state-btn{ text-align:left; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 13px 15px; cursor:pointer; transition: all .15s; }
+  .state-btn .name{ font-weight:600; font-size:0.92rem; color: var(--ink); display:block; }
+  .state-btn:hover{ border-color: var(--purple); }
+  .state-btn.active{ border-color: transparent; background: linear-gradient(var(--surface),var(--surface)) padding-box, linear-gradient(120deg, var(--purple), var(--pink)) border-box; border: 2px solid transparent; box-shadow: 0 10px 28px rgba(148,55,255,0.16); }
+  .state-panel{ background: var(--surface-tint); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; font-size:0.92rem; color: var(--ink-soft); }
+  .state-panel .verdict{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+
+  /* unified annotated-code widget */
+  .code-widget{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px; margin: 16px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .code-widget-head{ text-align:center; padding: 2px 0 10px; }
+  .code-widget-title{ font-family: var(--mono); font-size:12.5px; font-weight:600; letter-spacing:0.08em; color: var(--ink-soft); text-transform: uppercase; margin:0 0 4px; }
+  .code-widget-sub{ font-size:0.83rem; color: var(--ink-dim); }
+  .code-wrap{ display:grid; grid-template-columns: 1.1fr 1fr; gap:8px; align-items:start; }
+  .code-panel{ background: var(--term-bg); border-radius: var(--radius-sm); padding:10px 0; font-family: var(--mono); font-size:0.8rem; line-height:1.5; overflow-x:auto; }
+  .code-panel pre{ margin:0; padding:0 12px; }
+  .cline{ display:block; padding:1px 8px 1px 10px; border-left:3px solid transparent; border-radius:3px; cursor:pointer; white-space:pre; color:#e9e6f2; transition: background .15s, border-color .15s; }
+  .cline.group{ margin-top:8px; }
+  .cline:hover{ background: rgba(148,55,255,0.16); }
+  .cline.active{ background: rgba(247,61,241,0.18); border-left-color: var(--pink); color:#fff; }
+  .cline.no-note{ cursor:default; } .cline.no-note:hover{ background:none; }
+  .code-note{ background: var(--surface-tint); border-radius: var(--radius-sm); padding:12px 14px; font-size:0.87rem; color: var(--ink-soft); }
+  .code-note .tag{ font-family: var(--mono); font-size:13px; font-weight:600; color: var(--purple-deep); display:block; margin-bottom:6px; }
+  .code-note-tip{ margin-top:10px; background: rgba(251,196,115,0.14); border-left:3px solid var(--amber); border-radius:0 4px 4px 0; padding:7px 11px; font-size:0.82rem; color:#8a5a06; }
+  .code-hint{ font-size:0.76rem; color: var(--ink-dim); margin:8px 2px 0; }
+  @media (max-width:640px){ .code-wrap{ grid-template-columns:1fr; } }
+
+  .quiz{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 22px 0; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .quiz .qlabel{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--purple-deep); margin-bottom:8px; display:block; font-weight:600; }
+  .quiz .qtext{ font-weight:600; margin-bottom:14px; color: var(--ink); }
+  .qopt{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius: var(--radius-sm); margin-bottom:8px; cursor:pointer; font-size:0.92rem; transition: border-color .15s, background .15s; }
+  .qopt:hover{ border-color: var(--purple); }
+  .qopt.correct{ border-color: var(--green); background: rgba(74,222,128,0.1); }
+  .qopt.incorrect{ border-color: var(--red); background: rgba(255,71,71,0.08); }
+  .qopt input{ margin-top:3px; accent-color: var(--purple); }
+  .qfeedback{ font-size:0.87rem; margin-top:10px; padding:10px 12px; border-radius: var(--radius-sm); display:none; }
+  .qfeedback.show{ display:block; }
+  .qfeedback.ok{ background: rgba(74,222,128,0.12); color:#1c8a4d; }
+  .qfeedback.no{ background: rgba(255,71,71,0.1); color:#c1272d; }
+
+  .callout{ border-radius: var(--radius); padding: 18px 20px; margin: 18px 0; border:1px solid rgba(255,71,71,0.25); background: rgba(255,71,71,0.05); }
+  .callout .tag{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#c1272d; display:block; margin-bottom:10px; font-weight:600; }
+  .callout .belief{ font-style: italic; color: var(--ink-soft); margin-bottom:12px; }
+  .callout .reality-label{ font-weight:600; color: var(--purple-deep); font-size:0.85rem; margin-bottom:4px; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  .gap-list{ display:flex; flex-direction:column; gap:10px; margin: 18px 0; }
+  .gap-item{ display:flex; gap:12px; background: var(--surface-tint); border: 1px solid var(--line); border-radius: var(--radius); padding: 13px 16px; font-size:0.9rem; }
+  .gap-item .icon{ flex-shrink:0; }
+  .gap-item .title{ font-weight:600; color: var(--ink); margin-bottom:2px; }
+  .gap-item .desc{ color: var(--ink-dim); font-size:0.86rem; }
+
+  .fq-box{ background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:22px 24px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .fq-progress{ display:flex; justify-content:space-between; font-family: var(--mono); font-size:0.75rem; color: var(--ink-dim); margin-bottom:16px; }
+  .fq-bar{ height:4px; background: var(--line); border-radius:2px; overflow:hidden; margin-bottom:20px; }
+  .fq-bar-fill{ height:100%; background: linear-gradient(90deg,var(--purple),var(--pink)); transition: width .3s ease; width:33%; }
+  .fq-nav{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn{ font-family: var(--sans); font-weight:600; font-size:0.9rem; border:none; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:10px 22px; border-radius:999px; cursor:pointer; transition: transform .15s, box-shadow .15s; box-shadow: 0 8px 20px rgba(148,55,255,0.25); }
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 12px 26px rgba(148,55,255,0.35); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn.ghost{ background: var(--surface); color: var(--purple-deep); border: 1.5px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover{ border-color: var(--purple); }
+  .fq-result{ text-align:center; padding:20px 0 6px; display:none; }
+  .fq-result.show{ display:block; }
+  .fq-score{ font-size:2.3rem; font-weight:700; background: linear-gradient(90deg,var(--purple),var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .fc-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:18px 0; }
+  .flashcard{ perspective:1200px; height:150px; cursor:pointer; }
+  .fc-inner{ position:relative; width:100%; height:100%; transition: transform .5s; transform-style: preserve-3d; }
+  .flashcard.flipped .fc-inner{ transform: rotateY(180deg); }
+  .fc-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius: var(--radius); border:1px solid var(--line); padding:16px 18px; display:flex; align-items:center; font-size:0.87rem; box-shadow: 0 8px 22px rgba(148,55,255,0.08); }
+  .fc-front{ background: var(--surface); color: var(--ink); }
+  .fc-back{ background: linear-gradient(135deg, var(--purple), var(--pink)); color:#fff; transform: rotateY(180deg); font-family: var(--mono); font-size:0.8rem; }
+  .fc-hint{ font-family: var(--mono); font-size:0.66rem; color: var(--ink-dim); position:absolute; bottom:10px; right:14px; }
+
+  .cta-card{ display:block; text-decoration:none; background: linear-gradient(120deg, var(--purple), var(--pink) 60%, var(--blue)); border-radius: var(--radius-lg); padding: 24px 26px; color: #fff; margin-bottom: 16px; box-shadow: 0 16px 40px rgba(148,55,255,0.28); transition: transform .15s; }
+  .cta-card:hover{ transform: translateY(-2px); }
+  .cta-card .eyebrow-i{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.12em; opacity:0.85; margin-bottom:8px; }
+  .cta-card .title{ font-size:1.15rem; font-weight:700; margin-bottom:6px; }
+  .cta-card .why{ font-size:0.9rem; opacity:0.92; max-width:56ch; }
+  .cta-card .go{ display:inline-block; margin-top:12px; font-weight:600; font-size:0.87rem; }
+
+  .ns-grid{ display:flex; flex-direction:column; gap:12px; }
+  .ns-card{ display:block; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:14px 16px; text-decoration:none; transition: border-color .15s, transform .15s; }
+  .ns-card:hover{ border-color: var(--purple); transform: translateX(3px); }
+  .ns-card .title{ color: var(--purple-deep); font-weight:600; font-size:0.95rem; margin-bottom:3px; }
+  .ns-card .why{ color: var(--ink-dim); font-size:0.84rem; }
+
+  footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="crumb reveal in"><a href="#">Blog</a> › Product Comparison › Sandboxing</div>
+
+  <header class="reveal in">
+    <span class="kicker">Product / Feature Comparison</span>
+    <h1>Docker Sandboxes vs Docker AI Governance: What Each One Actually Does</h1>
+    <p class="lede">These two names get used almost interchangeably, but they answer different questions. Sandboxes asks "how does one agent run safely?" Governance asks "how do we guarantee that answer holds across every developer's machine?" Here's where the line actually sits.</p>
+    <div class="meta-bar">
+      <span class="chip">Estimated time <b>9 min</b></span>
+      <span class="chip">Format <b>comparison</b></span>
+      <span class="chip">Covers <b>2 products</b></span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- SCOPE -->
+    <section>
+      <span class="eyebrow">scope</span>
+      <h2>Two products, two different layers</h2>
+      <p>Docker Sandboxes is per-agent isolation: each coding agent session runs inside its own dedicated microVM, with its own private Docker daemon and a credential proxy that keeps API keys out of the sandbox filesystem. It's something an individual developer installs and configures on their own machine.</p>
+      <p>Docker AI Governance is an org-wide policy layer on top of that: network access rules, filesystem access rules, and MCP access rules, defined once by an admin and enforced identically across every sandbox in the organization — no individual developer can loosen them.</p>
+
+      <div class="def-grid">
+        <div class="def-card"><div class="term">Docker Sandboxes</div><p class="body">The isolation boundary itself. Per-machine, per-developer, configured with the <code>sbx</code> CLI and local <code>sbx policy</code> rules.</p></div>
+        <div class="def-card"><div class="term">Docker AI Governance</div><p class="body">The policy layer on top. Org-wide, admin-configured, enforced through the Docker Admin Console or Governance API.</p></div>
+        <div class="def-card"><div class="term">Kit</div><p class="body">A YAML package of tools, credentials, and network rules a sandbox can load at runtime — the repeatable, shareable configuration layer for both.</p></div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <tr><th></th><th>Docker Sandboxes</th><th>Docker AI Governance</th></tr>
+          <tr><td>Scope</td><td>Per agent, per machine</td><td>Org-wide, every sandbox</td></tr>
+          <tr><td>Controls</td><td>microVM boundary, private daemon, credential proxy</td><td>Network, filesystem, and MCP access policy</td></tr>
+          <tr><td>Configured by</td><td>The developer, via <code>sbx</code> and local <code>sbx policy</code></td><td>An admin, via Docker Admin Console or the Governance API</td></tr>
+          <tr><td>Can be overridden locally?</td><td>N/A — it's the local layer</td><td>No — org allow rules take precedence; local rules can only restrict further</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- WHEN YOU NEED WHICH -->
+    <section>
+      <span class="eyebrow">when you need which</span>
+      <h2>Sandboxes alone, or Sandboxes plus Governance?</h2>
+      <p>Sandboxes by itself already gets you a real hard boundary — a microVM, a disposable daemon, credentials that never enter the guest. For a solo developer or a small team comfortable setting local policy per machine, that's a complete answer.</p>
+      <p>Governance earns its keep the moment "per machine" stops being good enough — multiple teams, an admin who needs to guarantee no one's local settings quietly drift, or an audit trail that has to hold up independent of what any one developer configured.</p>
+
+      <div class="state-grid">
+        <button class="state-btn active" data-state="no-gov"><span class="name">No organization governance</span></button>
+        <button class="state-btn" data-state="gov"><span class="name">Organization governance active</span></button>
+      </div>
+      <div class="state-panel" id="statePanel"></div>
+    </section>
+
+    <!-- MISCONCEPTION -->
+    <section>
+      <span class="eyebrow">common misconception</span>
+      <div class="callout">
+        <span class="tag">What people assume</span>
+        <p class="belief">"We don't have real security until we buy Governance."</p>
+        <div class="reality-label">What's actually true</div>
+        <p>The hard isolation boundary — the microVM, the private daemon, the credential proxy — is Sandboxes, and it's active the moment a sandbox runs, with no Governance subscription required. Governance doesn't add security to an individual sandbox; it adds the guarantee that the same rules apply uniformly across every sandbox in the org, and that no single developer's machine is the exception.</p>
+      </div>
+    </section>
+
+    <!-- KIT FORMAT -->
+    <section>
+      <span class="eyebrow">the kit format</span>
+      <h2>Kits: the repeatable config layer, still finding its shape</h2>
+      <p>Before kits, customizing what tools a sandbox had meant installing them by hand each time, or maintaining a custom Dockerfile-based image. A kit packages that setup once — a <code>spec.yaml</code> declaring what to install, which credentials to inject, which domains the sandbox may reach, and which files to drop in — and it's distributed as a local folder, a ZIP, an OCI artifact, or a Git URL. A <code>kind: mixin</code> kit extends an existing agent; a <code>kind: sandbox</code> kit defines a whole agent from scratch.</p>
+
+      <div class="code-widget">
+        <div class="code-widget-head">
+          <div class="code-widget-title">spec.yaml — a mixin kit, annotated</div>
+          <div class="code-widget-sub">Click any highlighted line to learn what it does</div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-panel"><pre id="kitCode"></pre></div>
+          <div class="code-note" id="kitNote">
+            <span class="tag">Click a line to start</span>
+            Select any highlighted line on the left to see what it controls.
+          </div>
+        </div>
+        <div class="code-hint">This is one small, complete kit — real ones can install far more, but the shape stays the same.</div>
+      </div>
+
+      <div class="quiz" data-quiz>
+        <span class="qlabel">Check your understanding</span>
+        <div class="qtext">A team wants an agent that gets Playwright pre-installed but is otherwise a normal Claude Code sandbox. Which kit type fits?</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> kind: sandbox</div>
+        <div class="qopt" data-correct="true"><input type="radio" name="q1"> kind: mixin</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Neither — kits can't add tools</div>
+        <div class="qfeedback"></div>
+      </div>
+    </section>
+
+    <!-- HONEST GAPS -->
+    <section>
+      <span class="eyebrow">honest gaps</span>
+      <h2>What doesn't work yet</h2>
+      <p>Worth saying plainly, since it changes how you should evaluate this today: the isolation and credential model work now. The customization and distribution layer is still catching up.</p>
+      <div class="gap-list">
+        <div class="gap-item"><span class="icon">⚠️</span><div><div class="title">No automatic port publishing yet</div><div class="desc">A kit-exposed port gets an ephemeral host port unless you pin one yourself with <code>sbx ports --publish</code> — there's no automatic, stable mapping today.</div></div></div>
+        <div class="gap-item"><span class="icon">⚠️</span><div><div class="title">Kit parameters aren't user-configurable yet</div><div class="desc">You can't currently pass runtime arguments into a kit — that's on the roadmap, not shipped.</div></div></div>
+        <div class="gap-item"><span class="icon">⚠️</span><div><div class="title">The kit spec may still change</div><div class="desc">Kits are explicitly labeled experimental, and fields have already been renamed or replaced between releases — treat kits you write today as likely to need updates.</div></div></div>
+      </div>
+    </section>
+
+    <!-- STACKGEN ANGLE -->
+    <section>
+      <span class="eyebrow">why this pattern looks familiar</span>
+      <h2>Define once, enforce everywhere isn't a new idea</h2>
+      <p>The precedence rule underneath Governance — organization policy overrides local configuration, deny always wins, no individual can loosen what's centrally set — is the same governance shape we rely on at StackGen for infrastructure automation generally. Whether the thing being generated is an agent's sandbox policy or a Terraform plan, the pattern that scales is identical: policy defined once as a shared artifact, evaluated the same way regardless of who — or what — triggered the change, with local convenience never allowed to override the org's baseline.</p>
+      <p>That's the real argument for treating Governance as separate from Sandboxes rather than a checkbox inside it: centralized policy enforcement is a distinct capability with its own lifecycle, and it's worth designing that way from the start rather than bolting it on once per-machine drift becomes a problem you can already see.</p>
+    </section>
+
+    <!-- FINAL QUIZ -->
+    <section>
+      <span class="eyebrow">check what you've learned</span>
+      <h2>Three-question recap</h2>
+      <div class="fq-box">
+        <div class="fq-progress"><span id="fqPos">Q 1 / 3</span><span></span></div>
+        <div class="fq-bar"><div class="fq-bar-fill" id="fqBarFill"></div></div>
+        <div id="fqQuestion"></div>
+        <div class="fq-nav">
+          <button class="btn ghost" id="fqPrev" disabled>Back</button>
+          <button class="btn" id="fqNext">Next</button>
+        </div>
+        <div class="fq-result" id="fqResult">
+          <div class="fq-score" id="fqScoreFinal"></div>
+          <p id="fqScoreLabel"></p>
+          <button class="btn" id="fqRestart">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLASHCARDS -->
+    <section>
+      <span class="eyebrow">flashcards</span>
+      <h2>Click to reveal</h2>
+      <div class="fc-grid" id="fcGrid"></div>
+    </section>
+
+    <!-- NEXT STEPS -->
+    <section>
+      <span class="eyebrow">next steps</span>
+      <h2>Where to go from here</h2>
+      <a class="cta-card" href="https://docs.stackgen.com" target="_blank" rel="noopener">
+        <div class="eyebrow-i">StackGen</div>
+        <div class="title">See the same governance model applied to infrastructure</div>
+        <div class="why">Policy defined once and enforced identically across every change — read how StackGen applies this to infrastructure automation.</div>
+        <span class="go">Read the docs →</span>
+      </a>
+      <div class="ns-grid">
+        <a class="ns-card" href="https://www.docker.com/products/docker-sandboxes/" target="_blank" rel="noopener">
+          <div class="title">Docker Sandboxes product page ↗</div>
+          <div class="why">Overview, install instructions, and how Sandboxes and Governance fit together.</div>
+        </a>
+        <a class="ns-card" href="https://docs.docker.com/ai/sandboxes/governance/" target="_blank" rel="noopener">
+          <div class="title">Docker AI Governance documentation ↗</div>
+          <div class="why">Full reference for organization policy, local policy, and how precedence is resolved between them.</div>
+        </a>
+        <a class="ns-card" href="https://docs.docker.com/ai/sandboxes/customize/kits/" target="_blank" rel="noopener">
+          <div class="title">Kits documentation ↗</div>
+          <div class="why">The full field-by-field kit spec reference, plus current limitations as they stand today.</div>
+        </a>
+        <a class="ns-card" href="https://github.com/docker/sbx-kits-contrib" target="_blank" rel="noopener">
+          <div class="title">sbx-kits-contrib on GitHub ↗</div>
+          <div class="why">Community-maintained kit examples, including the Playwright kit referenced above.</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>Blog · Product Comparison · Sandboxing</footer>
+</div>
+
+<script>
+(function(){
+  var revealEls = document.querySelectorAll('section');
+  revealEls.forEach(function(el){ el.classList.add('reveal'); });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  }, {threshold:0.08});
+  revealEls.forEach(function(el){ io.observe(el); });
+
+  /* precedence picker */
+  var stateData = {
+    "no-gov": {verdict:"Local rules decide.", text:"Whatever the developer set with sbx policy, plus any network rules a loaded kit declares, determines what that sandbox can reach. Every machine can look different."},
+    "gov": {verdict:"Organization policy decides.", text:"Only org-level allow rules can grant access — local and kit-defined allow rules stop being evaluated. Local and kit-defined deny rules still apply on top, so a developer can restrict further, but never loosen what the org allows."}
+  };
+  document.querySelectorAll('.state-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.state-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var d = stateData[btn.dataset.state];
+      document.getElementById('statePanel').innerHTML = '<div class="verdict">'+d.verdict+'</div><div>'+d.text+'</div>';
+    });
+  });
+  document.querySelector('.state-btn').click();
+
+  /* annotated kit spec */
+  var kitLines = [
+    {t:"kind: mixin", note:"Extends an existing agent with extra capabilities, instead of defining a whole new agent from scratch — that's what kind: sandbox would do."},
+    {t:"name: playwright-kit", note:"The kit's identifier, used with --kit playwright-kit when creating a sandbox, or sbx kit push/pull to publish and fetch it."},
+    {t:"description: Adds Playwright browser testing tools", note:"Human-readable only — shown in listings, not evaluated at runtime."},
+    {t:"", note:null},
+    {t:"setup:", note:null, group:true},
+    {t:"  - apt-get install -y chromium", note:"Runs once when the kit is applied to a sandbox — this is where the actual tool installation happens."},
+    {t:"", note:null},
+    {t:"permissions:", note:null, group:true},
+    {t:"  network:", note:null},
+    {t:"    allow: [npmjs.org, playwright.dev]", note:"The only domains this kit's sandbox may reach outbound. Everything else stays denied by default, kit or no kit.", tip:"Even a trusted kit only ever widens access to exactly the domains it lists — never to \"the internet\" generally."},
+    {t:"", note:null},
+    {t:"ports:", note:null, group:true},
+    {t:"  - container: 9222", note:"Declares a port inside the sandbox. It gets an ephemeral host port unless pinned separately — see the gaps section above."}
+  ];
+  var kitEl = document.getElementById('kitCode');
+  kitLines.forEach(function(line){
+    var span = document.createElement('span');
+    span.className = 'cline' + (line.note ? '' : ' no-note') + (line.group ? ' group' : '');
+    span.textContent = line.t;
+    if(line.note){ span.dataset.note = line.note; }
+    if(line.tip){ span.dataset.tip = line.tip; }
+    kitEl.appendChild(span);
+    kitEl.appendChild(document.createTextNode('\n'));
+  });
+  kitEl.querySelectorAll('.cline').forEach(function(span){
+    if(!span.dataset.note) return;
+    span.addEventListener('click', function(){
+      kitEl.querySelectorAll('.cline').forEach(function(s){ s.classList.remove('active'); });
+      span.classList.add('active');
+      var html = '<span class="tag">' + span.textContent.trim() + '</span>' + span.dataset.note;
+      if(span.dataset.tip){ html += '<div class="code-note-tip">' + span.dataset.tip + '</div>'; }
+      document.getElementById('kitNote').innerHTML = html;
+    });
+  });
+
+  /* inline quiz */
+  document.querySelectorAll('[data-quiz]').forEach(function(quiz){
+    var opts = quiz.querySelectorAll('.qopt');
+    var fb = quiz.querySelector('.qfeedback');
+    opts.forEach(function(opt){
+      opt.addEventListener('click', function(){
+        var input = opt.querySelector('input'); input.checked = true;
+        opts.forEach(function(o){ o.classList.remove('correct','incorrect'); });
+        var isCorrect = opt.dataset.correct === 'true';
+        opt.classList.add(isCorrect ? 'correct' : 'incorrect');
+        if(!isCorrect){ opts.forEach(function(o){ if(o.dataset.correct==='true'){ o.classList.add('correct'); } }); }
+        fb.textContent = isCorrect ? "Right — a mixin extends the agent you already have, instead of replacing it." : "Not quite — think about which kit type adds to an existing agent versus defining one from zero.";
+        fb.className = 'qfeedback show ' + (isCorrect ? 'ok' : 'no');
+      });
+    });
+  });
+
+  /* final quiz */
+  var fq = [
+    {q:"What does Docker Sandboxes control that Governance doesn't?", opts:["Org-wide MCP policy","The microVM isolation boundary and private daemon for one agent","Which domains every developer in the company can reach","Nothing — they control the same thing"], correct:1},
+    {q:"When organization governance is active, what happens to a local sbx policy allow rule?", opts:["It's evaluated first","It's ignored — only org allow rules can grant access","It overrides the org policy","It deletes the org policy"], correct:1},
+    {q:"According to this post, what's NOT true about kits today?", opts:["The kit format is experimental","Kit parameters are user-configurable today","Kits can be distributed via OCI artifact or Git URL","Ports still need manual publishing to get a stable mapping"], correct:1}
+  ];
+  var fqIndex = 0, fqAnswers = new Array(fq.length).fill(null);
+  function renderFq(){
+    var item = fq[fqIndex];
+    document.getElementById('fqPos').textContent = 'Q ' + (fqIndex+1) + ' / ' + fq.length;
+    document.getElementById('fqBarFill').style.width = (((fqIndex+1)/fq.length)*100) + '%';
+    var html = '<div class="qtext" style="margin-bottom:14px;">' + item.q + '</div>';
+    item.opts.forEach(function(opt,i){
+      var picked = fqAnswers[fqIndex]; var cls='';
+      if(picked !== null){ if(i===item.correct) cls=' correct'; else if(i===picked) cls=' incorrect'; }
+      html += '<div class="qopt'+cls+'" data-i="'+i+'"><input type="radio" name="fqopt" '+(picked===i?'checked':'')+'> '+opt+'</div>';
+    });
+    document.getElementById('fqQuestion').innerHTML = html;
+    document.getElementById('fqPrev').disabled = fqIndex === 0;
+    document.getElementById('fqNext').textContent = fqIndex === fq.length-1 ? 'Finish' : 'Next';
+    document.querySelectorAll('#fqQuestion .qopt').forEach(function(opt){
+      opt.addEventListener('click', function(){
+        if(fqAnswers[fqIndex] !== null) return;
+        fqAnswers[fqIndex] = parseInt(opt.dataset.i,10);
+        renderFq();
+      });
+    });
+  }
+  document.getElementById('fqNext').addEventListener('click', function(){
+    if(fqIndex < fq.length-1){ fqIndex++; renderFq(); }
+    else{
+      var score = fqAnswers.reduce(function(acc,a,i){ return acc + (a===fq[i].correct?1:0); },0);
+      document.getElementById('fqScoreFinal').textContent = score + ' / ' + fq.length;
+      document.getElementById('fqScoreLabel').textContent =
+        score === fq.length ? "Perfect — the scope split is clear." :
+        score >= fq.length-1 ? "Almost — worth a quick re-read above." :
+        "Worth another pass through the scope and precedence sections.";
+      document.getElementById('fqResult').classList.add('show');
+      document.getElementById('fqQuestion').style.display='none';
+      document.querySelector('.fq-nav').style.display='none';
+    }
+  });
+  document.getElementById('fqPrev').addEventListener('click', function(){ if(fqIndex>0){ fqIndex--; renderFq(); } });
+  document.getElementById('fqRestart').addEventListener('click', function(){
+    fqIndex=0; fqAnswers = new Array(fq.length).fill(null);
+    document.getElementById('fqResult').classList.remove('show');
+    document.getElementById('fqQuestion').style.display='';
+    document.querySelector('.fq-nav').style.display='';
+    renderFq();
+  });
+  renderFq();
+
+  /* flashcards */
+  var cards = [
+    {q:"What does Docker Sandboxes provide on its own, no Governance needed?", a:"A microVM isolation boundary, a private Docker daemon, and a credential proxy — active per sandbox by default."},
+    {q:"What does Docker AI Governance add on top?", a:"Org-wide network, filesystem, and MCP policy — defined once by an admin, enforced identically across every sandbox."},
+    {q:"kind: mixin vs kind: sandbox — what's the difference?", a:"mixin extends an existing agent with extra capabilities; sandbox defines a whole new agent from scratch."},
+    {q:"How are kits distributed?", a:"As a local directory, a ZIP file, an OCI artifact, or a Git URL."},
+    {q:"What's the current limitation around sandbox ports?", a:"No automatic port publishing yet — a stable host port has to be pinned manually with sbx ports --publish."}
+  ];
+  var fcGrid = document.getElementById('fcGrid');
+  cards.forEach(function(c){
+    var el = document.createElement('div');
+    el.className='flashcard'; el.tabIndex=0;
+    el.innerHTML = '<div class="fc-inner"><div class="fc-face fc-front">'+c.q+'<span class="fc-hint">click to flip</span></div><div class="fc-face fc-back">'+c.a+'</div></div>';
+    el.addEventListener('click', function(){ el.classList.toggle('flipped'); });
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.classList.toggle('flipped'); } });
+    fcGrid.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>
