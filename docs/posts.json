@@ -43,5 +43,41 @@
   "tags": ["tutorial", "docker", "compose", "mcp", "ai-agents"],
   "readTime": "14 min",
   "difficulty": "intro–intermediate"
+},
+  {
+  "slug": "ai-agents-non-human-identities-governance",
+  "title": "AI Agents Are Non-Human Identities Now — Is Your Governance Model Ready?",
+  "date": "2026-09-16",
+  "description": "Agents now initiate actions autonomously, at machine speed, mostly outside human visibility. Traditional IAM was never built for that. What actually governing an agent identity requires — and how one industry response is shaping up.",
+  "tags": ["governance", "identity", "security", "perspective"],
+  "readTime": "13 min",
+  "difficulty": "intermediate"
+},
+{
+  "slug": "docker-hardened-images-free",
+  "title": "Docker Hardened Images Go Free: What 1,000+ Hardened Images Means for Your Supply Chain",
+  "date": "2026-09-17",
+  "description": "Docker's catalog of 1,000+ Hardened Images is now free under Apache 2.0. What actually changed, why hardened base images cut CVE exposure, and what to check when you migrate a Dockerfile.",
+  "tags": ["docker", "supply-chain", "security", "comparison"],
+  "readTime": "11 min",
+  "difficulty": "intermediate"
+},
+{
+  "slug": "docker-offload-and-ask-gordon",
+  "title": "Docker Offload and Ask Gordon: What Cloud-Burst AI Development Actually Looks Like",
+  "date": "2026-09-18",
+  "description": "Docker Offload bursts GPU-heavy workloads to the cloud without leaving your local CLI, and Ask Gordon's new sidebar puts one-click diagnosis right on the container, image, or volume you're already looking at.",
+  "tags": ["docker", "feature-spotlight", "ai-agents"],
+  "readTime": "8 min",
+  "difficulty": "intro"
+},
+{
+  "slug": "inside-docker-mcp-gateway",
+  "title": "Inside Docker's MCP Gateway: Securing the Bridge Between Agents and Tools",
+  "date": "2026-09-19",
+  "description": "What Docker's MCP Gateway actually enforces — discovery, access control, and message routing — plus Smart Search, Tool Composition, and a documented, already-patched risk pattern worth understanding.",
+  "tags": ["deep-dive", "docker", "mcp", "security"],
+  "readTime": "21 min",
+  "difficulty": "advanced"
 }
 ]
