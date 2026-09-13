@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inside Docker's MCP Gateway: Securing the Bridge Between Agents and Tools</title>
+<meta name="description" content="What Docker's MCP Gateway actually enforces — discovery, access control, and message routing — plus Smart Search, Tool Composition, and a documented, already-patched risk pattern worth understanding.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #9437FF;
+    --purple-deep: #6B21C9;
+    --pink: #F73DF1;
+    --blue: #3FD9FB;
+    --ink: #171321;
+    --ink-soft: #4a4658;
+    --ink-dim: #7d7a89;
+    --line: #ECE7F5;
+    --surface: #FFFFFF;
+    --surface-tint: #FAF8FE;
+    --term-bg: #14111c;
+    --green: #4ADE80;
+    --amber: #FBC473;
+    --red: #FF4747;
+    --radius-lg: 20px;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", "SF Mono", Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(148,55,255,0.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(247,61,241,0.05), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 50% 100%, rgba(63,217,251,0.05), transparent 60%),
+      var(--surface);
+    line-height: 1.6;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--purple-deep); }
+  a:hover{ color: var(--pink); }
+  ::selection{ background: var(--pink); color: #fff; }
+  :focus-visible{ outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 4px; }
+
+  .page{ max-width: 780px; margin: 0 auto; padding: 48px 24px 90px; }
+  .crumb{ font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); margin-bottom: 26px; }
+  .crumb a{ color: var(--ink-soft); text-decoration:none; }
+  .crumb a:hover{ color: var(--purple); }
+
+  .kicker{ display:inline-flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: linear-gradient(90deg, var(--purple), var(--pink)); padding: 6px 14px; border-radius: 999px; margin-bottom: 18px; }
+
+  h1{ font-weight: 600; font-size: clamp(1.85rem, 4.6vw, 2.6rem); line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 16px; }
+  .lede{ font-size: 1.08rem; color: var(--ink-soft); max-width: 64ch; margin: 0 0 26px; }
+  .meta-bar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 44px; }
+  .chip{ font-family: var(--mono); font-size: 12px; color: var(--ink-soft); background: var(--surface-tint); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
+  .chip b{ color: var(--purple-deep); font-weight: 600; }
+
+  section{ margin-bottom: 56px; }
+  .eyebrow{ display:flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--purple-deep); margin-bottom: 14px; }
+  .eyebrow::before{ content:""; width:16px; height:2px; background: linear-gradient(90deg,var(--purple),var(--pink)); border-radius:2px; }
+  h2{ font-weight: 600; font-size: 1.55rem; letter-spacing: -0.02em; margin: 0 0 16px; }
+  h3{ font-weight: 600; font-size: 1rem; margin: 20px 0 10px; color: var(--purple-deep); }
+  p{ margin: 0 0 14px; color: var(--ink-soft); }
+  section > p:last-child{ margin-bottom:0; }
+  strong{ color: var(--ink); }
+  code{ font-family: var(--mono); font-size: 0.87em; background: var(--surface-tint); border: 1px solid var(--line); padding: 2px 6px; border-radius: 5px; color: var(--purple-deep); }
+
+  .reveal{ opacity:0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  .def-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin: 18px 0 8px; }
+  .def-card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .def-card .term{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+  .def-card .body{ font-size:0.9rem; color: var(--ink-dim); margin:0; }
+
+  .tbl-wrap{ overflow-x:auto; margin: 18px 0; border: 1px solid var(--line); border-radius: var(--radius); }
+  table{ width:100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td{ text-align:left; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  th{ font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple-deep); font-weight: 600; background: var(--surface-tint); }
+  td{ color: var(--ink-soft); }
+  tr td:first-child{ color: var(--ink); font-weight: 500; }
+  tr:last-child td{ border-bottom:none; }
+
+  /* unified annotated-code widget */
+  .code-widget{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px; margin: 16px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .code-widget-head{ text-align:center; padding: 2px 0 10px; }
+  .code-widget-title{ font-family: var(--mono); font-size:12.5px; font-weight:600; letter-spacing:0.08em; color: var(--ink-soft); text-transform: uppercase; margin:0 0 4px; }
+  .code-widget-sub{ font-size:0.83rem; color: var(--ink-dim); }
+  .code-wrap{ display:grid; grid-template-columns: 1.1fr 1fr; gap:8px; align-items:start; }
+  .code-panel{ background: var(--term-bg); border-radius: var(--radius-sm); padding:10px 0; font-family: var(--mono); font-size:0.8rem; line-height:1.6; overflow-x:auto; }
+  .code-panel pre{ margin:0; padding:0 12px; }
+  .cline{ display:block; padding:1px 8px 1px 10px; border-left:3px solid transparent; border-radius:3px; cursor:pointer; white-space:pre; color:#e9e6f2; transition: background .15s, border-color .15s; }
+  .cline:hover{ background: rgba(148,55,255,0.16); }
+  .cline.active{ background: rgba(247,61,241,0.18); border-left-color: var(--pink); color:#fff; }
+  .cline.no-note{ cursor:default; } .cline.no-note:hover{ background:none; }
+  .code-note{ background: var(--surface-tint); border-radius: var(--radius-sm); padding:12px 14px; font-size:0.87rem; color: var(--ink-soft); }
+  .code-note .tag{ font-family: var(--mono); font-size:13px; font-weight:600; color: var(--purple-deep); display:block; margin-bottom:6px; }
+  .code-note-tip{ margin-top:10px; background: rgba(148,55,255,0.08); border-left:3px solid var(--purple); border-radius:0 4px 4px 0; padding:7px 11px; font-size:0.82rem; color: var(--purple-deep); }
+  .code-hint{ font-size:0.76rem; color: var(--ink-dim); margin:8px 2px 0; }
+  @media (max-width:640px){ .code-wrap{ grid-template-columns:1fr; } }
+
+  /* before/after state picker */
+  .state-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin: 18px 0 14px; }
+  .state-btn{ text-align:left; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 13px 15px; cursor:pointer; transition: all .15s; }
+  .state-btn .name{ font-weight:600; font-size:0.92rem; color: var(--ink); display:block; }
+  .state-btn:hover{ border-color: var(--purple); }
+  .state-btn.active{ border-color: transparent; background: linear-gradient(var(--surface),var(--surface)) padding-box, linear-gradient(120deg, var(--purple), var(--pink)) border-box; border: 2px solid transparent; box-shadow: 0 10px 28px rgba(148,55,255,0.16); }
+  .state-panel{ background: var(--surface-tint); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; font-size:0.92rem; color: var(--ink-soft); }
+  .state-panel .verdict{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+
+  .quiz{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 22px 0; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .quiz .qlabel{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--purple-deep); margin-bottom:8px; display:block; font-weight:600; }
+  .quiz .qtext{ font-weight:600; margin-bottom:14px; color: var(--ink); }
+  .qopt{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius: var(--radius-sm); margin-bottom:8px; cursor:pointer; font-size:0.92rem; transition: border-color .15s, background .15s; }
+  .qopt:hover{ border-color: var(--purple); }
+  .qopt.correct{ border-color: var(--green); background: rgba(74,222,128,0.1); }
+  .qopt.incorrect{ border-color: var(--red); background: rgba(255,71,71,0.08); }
+  .qopt input{ margin-top:3px; accent-color: var(--purple); }
+  .qfeedback{ font-size:0.87rem; margin-top:10px; padding:10px 12px; border-radius: var(--radius-sm); display:none; }
+  .qfeedback.show{ display:block; }
+  .qfeedback.ok{ background: rgba(74,222,128,0.12); color:#1c8a4d; }
+  .qfeedback.no{ background: rgba(255,71,71,0.1); color:#c1272d; }
+
+  .callout{ border-radius: var(--radius); padding: 18px 20px; margin: 18px 0; border:1px solid rgba(255,71,71,0.25); background: rgba(255,71,71,0.05); }
+  .callout .tag{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#c1272d; display:block; margin-bottom:10px; font-weight:600; }
+  .callout .belief{ font-style: italic; color: var(--ink-soft); margin-bottom:12px; }
+  .callout .reality-label{ font-weight:600; color: var(--purple-deep); font-size:0.85rem; margin-bottom:4px; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  /* architecture */
+  .arch-wrap{ display:grid; grid-template-columns: 1fr 1.2fr; gap:16px; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:18px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .arch-layers{ display:flex; flex-direction:column; gap:10px; }
+  .arch-layer{ background: var(--surface-tint); border:1px solid var(--line); border-radius: var(--radius-sm); padding:12px 14px; cursor:pointer; font-family: var(--mono); font-size:0.82rem; color: var(--ink-soft); text-align:left; width:100%; transition: all .15s; }
+  .arch-layer:hover{ transform: translateX(3px); }
+  .arch-layer.active{ border-color: var(--purple); background:#fff; box-shadow: 0 6px 18px rgba(148,55,255,0.15); color: var(--purple-deep); }
+  .arch-layer .tag{ display:block; font-size:0.66rem; opacity:.7; margin-bottom:2px; }
+  .arch-detail{ background: var(--surface-tint); border-radius: var(--radius-sm); padding:16px 18px; font-size:0.9rem; color: var(--ink-soft); min-height:170px; }
+  .arch-detail strong{ color: var(--purple-deep); }
+  @media (max-width:620px){ .arch-wrap{ grid-template-columns:1fr; } }
+
+  .fq-box{ background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:22px 24px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .fq-progress{ display:flex; justify-content:space-between; font-family: var(--mono); font-size:0.75rem; color: var(--ink-dim); margin-bottom:16px; }
+  .fq-bar{ height:4px; background: var(--line); border-radius:2px; overflow:hidden; margin-bottom:20px; }
+  .fq-bar-fill{ height:100%; background: linear-gradient(90deg,var(--purple),var(--pink)); transition: width .3s ease; width:20%; }
+  .fq-nav{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn{ font-family: var(--sans); font-weight:600; font-size:0.9rem; border:none; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:10px 22px; border-radius:999px; cursor:pointer; transition: transform .15s, box-shadow .15s; box-shadow: 0 8px 20px rgba(148,55,255,0.25); }
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 12px 26px rgba(148,55,255,0.35); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn.ghost{ background: var(--surface); color: var(--purple-deep); border: 1.5px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover{ border-color: var(--purple); }
+  .fq-result{ text-align:center; padding:20px 0 6px; display:none; }
+  .fq-result.show{ display:block; }
+  .fq-score{ font-size:2.3rem; font-weight:700; background: linear-gradient(90deg,var(--purple),var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .fc-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:18px 0; }
+  .flashcard{ perspective:1200px; height:150px; cursor:pointer; }
+  .fc-inner{ position:relative; width:100%; height:100%; transition: transform .5s; transform-style: preserve-3d; }
+  .flashcard.flipped .fc-inner{ transform: rotateY(180deg); }
+  .fc-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius: var(--radius); border:1px solid var(--line); padding:16px 18px; display:flex; align-items:center; font-size:0.87rem; box-shadow: 0 8px 22px rgba(148,55,255,0.08); }
+  .fc-front{ background: var(--surface); color: var(--ink); }
+  .fc-back{ background: linear-gradient(135deg, var(--purple), var(--pink)); color:#fff; transform: rotateY(180deg); font-family: var(--mono); font-size:0.8rem; }
+  .fc-hint{ font-family: var(--mono); font-size:0.66rem; color: var(--ink-dim); position:absolute; bottom:10px; right:14px; }
+
+  .cta-card{ display:block; text-decoration:none; background: linear-gradient(120deg, var(--purple), var(--pink) 60%, var(--blue)); border-radius: var(--radius-lg); padding: 24px 26px; color: #fff; margin-bottom: 16px; box-shadow: 0 16px 40px rgba(148,55,255,0.28); transition: transform .15s; }
+  .cta-card:hover{ transform: translateY(-2px); }
+  .cta-card .eyebrow-i{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.12em; opacity:0.85; margin-bottom:8px; }
+  .cta-card .title{ font-size:1.15rem; font-weight:700; margin-bottom:6px; }
+  .cta-card .why{ font-size:0.9rem; opacity:0.92; max-width:56ch; }
+  .cta-card .go{ display:inline-block; margin-top:12px; font-weight:600; font-size:0.87rem; }
+
+  .ns-grid{ display:flex; flex-direction:column; gap:12px; }
+  .ns-card{ display:block; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:14px 16px; text-decoration:none; transition: border-color .15s, transform .15s; }
+  .ns-card:hover{ border-color: var(--purple); transform: translateX(3px); }
+  .ns-card .title{ color: var(--purple-deep); font-weight:600; font-size:0.95rem; margin-bottom:3px; }
+  .ns-card .why{ color: var(--ink-dim); font-size:0.84rem; }
+
+  footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="crumb reveal in"><a href="#">Blog</a> › Technical Deep Dive › MCP Security</div>
+
+  <header class="reveal in">
+    <span class="kicker">Technical Deep Dive · Level 3</span>
+    <h1>Inside Docker's MCP Gateway: Securing the Bridge Between Agents and Tools</h1>
+    <p class="lede">The moment an agent can reach more than one tool server, something has to decide which servers exist, which specific tools an agent may call, and how a request actually gets from the agent to the right container. That something is the gateway — and what it does and doesn't enforce is worth understanding precisely.</p>
+    <div class="meta-bar">
+      <span class="chip">Estimated time <b>21 min</b></span>
+      <span class="chip">Difficulty <b>advanced</b></span>
+      <span class="chip">Assumes <b>MCP basics</b></span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- WHAT IT ENFORCES -->
+    <section>
+      <span class="eyebrow">what it actually does</span>
+      <h2>Discovery, access control, and message routing — not one thing</h2>
+      <p>"MCP Gateway" gets described as a single feature, but it's really three separate jobs, and conflating them is where most misunderstandings about what it secures come from.</p>
+
+      <div class="def-grid">
+        <div class="def-card"><div class="term">Discovery</div><p class="body">Which MCP servers exist at all for this session — pulled from a catalog, not hardcoded per agent.</p></div>
+        <div class="def-card"><div class="term">Access control</div><p class="body">Of the servers that exist, which specific tools an agent may actually call — down to individual tool names, not just whole servers.</p></div>
+        <div class="def-card"><div class="term">Message routing</div><p class="body">Once a call is allowed, getting the request to the right containerized server and the response back — the gateway is the only thing either side talks to directly.</p></div>
+      </div>
+
+      <p>Each MCP server the gateway manages runs in its own container, so the gateway is also the only component that needs network access to spawn and supervise them — the agent itself never talks to a tool server directly, only to the gateway's single endpoint.</p>
+
+      <div class="code-widget">
+        <div class="code-widget-head">
+          <div class="code-widget-title">docker mcp gateway run — annotated</div>
+          <div class="code-widget-sub">Click any highlighted line to see which of the three jobs it belongs to</div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-panel"><pre id="gwCode"></pre></div>
+          <div class="code-note" id="gwNote">
+            <span class="tag">Click a line to start</span>
+            Select any highlighted line on the left to see what it controls.
+          </div>
+        </div>
+        <div class="code-hint">Every flag here is a real, documented gateway option.</div>
+      </div>
+    </section>
+
+    <!-- SMART SEARCH -->
+    <section>
+      <span class="eyebrow">context bloat</span>
+      <h2>Smart Search and Tool Composition</h2>
+      <p>Give an agent direct access to hundreds of tools across a dozen MCP servers, and the standard protocol behavior — listing every tool's full definition up front — starts working against you. A single <code>tools/list</code> call across a handful of well-populated servers can run into the tens of thousands of tokens before the agent has taken a single action, and once dozens of similarly-named tools are all sitting in context together, model accuracy on picking the right one measurably drops.</p>
+      <p>Docker's answer is to stop loading every tool definition by default. Smart Search exposes a small, constant set of discovery tools instead — the agent searches for what it needs by intent, and only the matching tool's definition enters context. Tool Composition goes a step further, letting an agent write code that combines existing tools into a new, reusable one inside a sandboxed execution step, instead of chaining many separate round-trips through the gateway.</p>
+
+      <div class="state-grid">
+        <button class="state-btn active" data-state="before"><span class="name">Static discovery</span></button>
+        <button class="state-btn" data-state="after"><span class="name">Smart Search</span></button>
+      </div>
+      <div class="state-panel" id="statePanel"></div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section>
+      <span class="eyebrow">architecture</span>
+      <h2>Agent → MCP Gateway → containerized MCP servers</h2>
+      <p>Click each layer — this is the same three jobs from above, mapped onto where they physically run.</p>
+      <div class="arch-wrap">
+        <div class="arch-layers">
+          <button class="arch-layer active" data-layer="agent"><span class="tag">layer 3 — caller</span>Agent</button>
+          <button class="arch-layer" data-layer="gateway"><span class="tag">layer 2</span>MCP Gateway</button>
+          <button class="arch-layer" data-layer="servers"><span class="tag">layer 1 — isolated</span>Containerized MCP servers</button>
+        </div>
+        <div class="arch-detail" id="archDetail"></div>
+      </div>
+    </section>
+
+    <!-- KNOWN RISK PATTERN -->
+    <section>
+      <span class="eyebrow">a documented, patched risk pattern</span>
+      <h2>What happens when the gateway trusts its caller too much</h2>
+      <p>Worth understanding as a cautionary example, not a how-to: in late 2025, security researchers publicly disclosed a vulnerability in Docker's "Ask Gordon" AI assistant, patched in Docker Desktop 4.50.0. The general mechanism — since patched, and described here at the level public reporting already covers, with no exploit detail — is what matters for this post's argument.</p>
+      <div class="callout">
+        <span class="tag">The pattern, at a summary level</span>
+        <p>Docker image metadata (label fields) can contain arbitrary text, since labels are meant to be descriptive, not executable. Ask Gordon, when asked about an image, read that metadata as context — and forwarded what it found to the MCP Gateway as if it were a legitimate instruction from the user. The gateway, seeing what looked like a normal request from a trusted caller, invoked the corresponding tools without additional validation. Researchers termed this "Meta-Context Injection": the failure wasn't in the gateway's routing logic, it was in nothing upstream of the gateway distinguishing data an assistant reads from instructions a user actually gave.</p>
+      </div>
+      <p>The fix Docker shipped is the instructive part: blocking a specific exfiltration path, plus requiring explicit user confirmation before the assistant can invoke any MCP tool at all — moving the trust decision back to a human, rather than assuming anything that reaches the gateway already deserved to be there. It's a concrete illustration of why <code>--log-calls</code> and <code>--verify-signatures</code> above aren't optional hardening for a "someday" threat model; the gap they close is one that was actually exploited.</p>
+
+      <div class="quiz" data-quiz>
+        <span class="qlabel">Check your understanding</span>
+        <div class="qtext">In the pattern described above, where did the actual failure occur?</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> A bug in the MCP Gateway's container isolation</div>
+        <div class="qopt" data-correct="true"><input type="radio" name="q1"> Nothing upstream distinguished metadata the assistant read from an instruction the user gave</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> A missing network firewall rule</div>
+        <div class="qfeedback"></div>
+      </div>
+    </section>
+
+    <!-- STACKGEN ANGLE -->
+    <section>
+      <span class="eyebrow">the same architectural need, one layer up</span>
+      <h2>Every AI-to-action path needs a policy enforcement point</h2>
+      <p>The gateway's real job, underneath the discovery and routing conveniences, is being the one place a policy decision gets made before an agent's intent becomes an actual side effect. That's not a pattern specific to MCP — it's the same shape we build into AI-driven infrastructure changes at StackGen: the AI can propose a change, but something structurally separate from the AI's own reasoning has to evaluate that proposal against policy before it's allowed to execute against real infrastructure.</p>
+      <p>The Ask Gordon incident is a clean illustration of what goes wrong when that enforcement point is missing or too trusting: the assistant's reasoning and the system's authorization collapsed into the same step. Wherever an AI's output can trigger a real action — a tool call, an infrastructure change, a production deploy — that has to stay two separate steps, evaluated by two different pieces of logic.</p>
+
+      <a class="cta-card" href="https://docs.stackgen.com" target="_blank" rel="noopener">
+        <div class="eyebrow-i">StackGen</div>
+        <div class="title">See policy enforcement applied to AI-driven infra changes</div>
+        <div class="why">The same "propose, then separately evaluate before executing" pattern from this gateway, generalized to infrastructure automation.</div>
+        <span class="go">Read the docs →</span>
+      </a>
+    </section>
+
+    <!-- FINAL QUIZ -->
+    <section>
+      <span class="eyebrow">check what you've learned</span>
+      <h2>Five-question recap</h2>
+      <div class="fq-box">
+        <div class="fq-progress"><span id="fqPos">Q 1 / 5</span><span></span></div>
+        <div class="fq-bar"><div class="fq-bar-fill" id="fqBarFill"></div></div>
+        <div id="fqQuestion"></div>
+        <div class="fq-nav">
+          <button class="btn ghost" id="fqPrev" disabled>Back</button>
+          <button class="btn" id="fqNext">Next</button>
+        </div>
+        <div class="fq-result" id="fqResult">
+          <div class="fq-score" id="fqScoreFinal"></div>
+          <p id="fqScoreLabel"></p>
+          <button class="btn" id="fqRestart">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLASHCARDS -->
+    <section>
+      <span class="eyebrow">flashcards</span>
+      <h2>Click to reveal</h2>
+      <div class="fc-grid" id="fcGrid"></div>
+    </section>
+
+    <!-- NEXT STEPS -->
+    <section>
+      <span class="eyebrow">next steps</span>
+      <h2>Where to go from here</h2>
+      <div class="ns-grid">
+        <a class="ns-card" href="https://www.docker.com/blog/docker-mcp-gateway-secure-infrastructure-for-agentic-ai/" target="_blank" rel="noopener">
+          <div class="title">Docker MCP Gateway: secure infrastructure for agentic AI ↗</div>
+          <div class="why">Docker's own overview of the gateway's security controls — signature verification, secret blocking, and call logging.</div>
+        </a>
+        <a class="ns-card" href="https://www.docker.com/blog/dynamic-mcps-stop-hardcoding-your-agents-world/" target="_blank" rel="noopener">
+          <div class="title">Dynamic MCPs: Smart Search and Tool Composition ↗</div>
+          <div class="why">The full explanation of the context-bloat problem and Docker's fix, in more depth than fits in one post.</div>
+        </a>
+        <a class="ns-card" href="https://github.com/docker/mcp-gateway" target="_blank" rel="noopener">
+          <div class="title">docker/mcp-gateway on GitHub ↗</div>
+          <div class="why">Source and full flag reference for everything in the annotated command above.</div>
+        </a>
+        <a class="ns-card" href="https://thehackernews.com/2026/02/docker-fixes-critical-ask-gordon-ai.html" target="_blank" rel="noopener">
+          <div class="title">Coverage of the Ask Gordon disclosure ↗</div>
+          <div class="why">Public reporting on the patched vulnerability referenced above, for the full technical writeup.</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>Blog · Technical Deep Dive · MCP Security</footer>
+</div>
+
+<script>
+(function(){
+  var revealEls = document.querySelectorAll('section');
+  revealEls.forEach(function(el){ el.classList.add('reveal'); });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  }, {threshold:0.08});
+  revealEls.forEach(function(el){ io.observe(el); });
+
+  /* annotated gateway command */
+  var gwLines = [
+    {t:"docker mcp gateway run \\", note:null},
+    {t:"  --servers github,slack \\", note:"Discovery: which MCP servers from the catalog this gateway loads at all. Nothing outside this list exists for the agent to find, let alone call.", tip:null},
+    {t:"  --tools github:create_issue,github:list_issues \\", note:"Access control at tool granularity: even within an allowed server, only these specific tools are exposed — not \"all of GitHub's tools,\" just these two.", tip:"This is the difference between allowing a server and allowing a capability."},
+    {t:"  --verify-signatures \\", note:"Routing safeguard: the gateway checks the provenance of an MCP server's container image before running it, so a compromised or unsigned image isn't silently spun up.", tip:null},
+    {t:"  --block-secrets \\", note:"On by default. Scans inbound and outbound tool payloads for content that looks like a secret, blocking leakage in either direction — not just at the network boundary.", tip:null},
+    {t:"  --log-calls", note:"On by default. Every tool call is logged — the audit trail that would surface exactly the kind of automated, unconfirmed tool invocation described in the risk-pattern section below.", tip:null}
+  ];
+  var gwEl = document.getElementById('gwCode');
+  gwLines.forEach(function(line){
+    var span = document.createElement('span');
+    span.className = 'cline' + (line.note ? '' : ' no-note');
+    span.textContent = line.t;
+    if(line.note){ span.dataset.note = line.note; }
+    if(line.tip){ span.dataset.tip = line.tip; }
+    gwEl.appendChild(span);
+    gwEl.appendChild(document.createTextNode('\n'));
+  });
+  gwEl.querySelectorAll('.cline').forEach(function(span){
+    if(!span.dataset.note) return;
+    span.addEventListener('click', function(){
+      gwEl.querySelectorAll('.cline').forEach(function(s){ s.classList.remove('active'); });
+      span.classList.add('active');
+      var html = '<span class="tag">' + span.textContent.trim() + '</span>' + span.dataset.note;
+      if(span.dataset.tip){ html += '<div class="code-note-tip">' + span.dataset.tip + '</div>'; }
+      document.getElementById('gwNote').innerHTML = html;
+    });
+  });
+
+  /* before/after smart search */
+  var stateData = {
+    before: {verdict:"Every tool definition loads up front.", text:"tools/list returns the full schema for every tool on every enabled server — across a handful of well-populated servers, this can run into the tens of thousands of tokens before the agent does anything. More tools in context also means more near-duplicate options for the model to confuse."},
+    after: {verdict:"The agent searches, it doesn't browse everything.", text:"A small, constant set of discovery tools (find, add) stays in context regardless of how many servers exist behind the gateway. The agent searches by intent, and only the specific tool it finds gets its full definition loaded — the context cost stops scaling with the size of the catalog."}
+  };
+  document.querySelectorAll('.state-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.state-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var d = stateData[btn.dataset.state];
+      document.getElementById('statePanel').innerHTML = '<div class="verdict">'+d.verdict+'</div><div>'+d.text+'</div>';
+    });
+  });
+  document.querySelector('.state-btn').click();
+
+  /* architecture layers */
+  var archData = {
+    agent: "<strong>Agent</strong><br><br>Speaks to exactly one endpoint — the gateway. It never has a direct address for any individual MCP server, so it has no path to a tool that discovery and access control didn't already approve.",
+    gateway: "<strong>MCP Gateway</strong><br><br>The single trust boundary. It resolves which servers exist (discovery), which specific tools within them are callable (access control), and forwards approved requests to the right container while returning the response (routing).",
+    servers: "<strong>Containerized MCP servers</strong><br><br>Each tool server runs in its own container, managed by the gateway. Isolating them this way means a bug or compromise in one tool server doesn't automatically expose every other tool behind the same gateway."
+  };
+  document.querySelectorAll('.arch-layer').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.arch-layer').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('archDetail').innerHTML = archData[btn.dataset.layer];
+    });
+  });
+  document.getElementById('archDetail').innerHTML = archData.agent;
+
+  /* inline quiz */
+  document.querySelectorAll('[data-quiz]').forEach(function(quiz){
+    var opts = quiz.querySelectorAll('.qopt');
+    var fb = quiz.querySelector('.qfeedback');
+    opts.forEach(function(opt){
+      opt.addEventListener('click', function(){
+        var input = opt.querySelector('input'); input.checked = true;
+        opts.forEach(function(o){ o.classList.remove('correct','incorrect'); });
+        var isCorrect = opt.dataset.correct === 'true';
+        opt.classList.add(isCorrect ? 'correct' : 'incorrect');
+        if(!isCorrect){ opts.forEach(function(o){ if(o.dataset.correct==='true'){ o.classList.add('correct'); } }); }
+        fb.textContent = isCorrect ? "Right — the gateway did what gateways do; nothing upstream flagged the input as untrusted." : "Not quite — the gateway's own container isolation and networking weren't what failed here.";
+        fb.className = 'qfeedback show ' + (isCorrect ? 'ok' : 'no');
+      });
+    });
+  });
+
+  /* final quiz */
+  var fq = [
+    {q:"Which of these is NOT one of the three things MCP Gateway enforces?", opts:["Discovery","Access control","Message routing","Model training"], correct:3},
+    {q:"What does --tools server:tool syntax let you restrict, beyond just --servers?", opts:["Which container registry is used","Individual tool names within an allowed server","The gateway's listening port","Nothing — servers and tools are the same granularity"], correct:1},
+    {q:"What problem does Smart Search solve?", opts:["Slow container boot times","Context bloat from loading every tool definition up front","Network latency between servers","Missing audit logs"], correct:1},
+    {q:"In the Ask Gordon incident, what specifically failed?", opts:["Container network isolation","The distinction between metadata to read and instructions to execute","The gateway's image signature verification","Docker Hub's authentication system"], correct:1},
+    {q:"What's the core parallel this post draws to AI-driven infrastructure automation?", opts:["Both need faster boot times","Both need a policy enforcement point separate from the AI's own reasoning","Neither needs any security controls","Infrastructure automation doesn't use gateways at all"], correct:1}
+  ];
+  var fqIndex = 0, fqAnswers = new Array(fq.length).fill(null);
+  function renderFq(){
+    var item = fq[fqIndex];
+    document.getElementById('fqPos').textContent = 'Q ' + (fqIndex+1) + ' / ' + fq.length;
+    document.getElementById('fqBarFill').style.width = (((fqIndex+1)/fq.length)*100) + '%';
+    var html = '<div class="qtext" style="margin-bottom:14px;">' + item.q + '</div>';
+    item.opts.forEach(function(opt,i){
+      var picked = fqAnswers[fqIndex]; var cls='';
+      if(picked !== null){ if(i===item.correct) cls=' correct'; else if(i===picked) cls=' incorrect'; }
+      html += '<div class="qopt'+cls+'" data-i="'+i+'"><input type="radio" name="fqopt" '+(picked===i?'checked':'')+'> '+opt+'</div>';
+    });
+    document.getElementById('fqQuestion').innerHTML = html;
+    document.getElementById('fqPrev').disabled = fqIndex === 0;
+    document.getElementById('fqNext').textContent = fqIndex === fq.length-1 ? 'Finish' : 'Next';
+    document.querySelectorAll('#fqQuestion .qopt').forEach(function(opt){
+      opt.addEventListener('click', function(){
+        if(fqAnswers[fqIndex] !== null) return;
+        fqAnswers[fqIndex] = parseInt(opt.dataset.i,10);
+        renderFq();
+      });
+    });
+  }
+  document.getElementById('fqNext').addEventListener('click', function(){
+    if(fqIndex < fq.length-1){ fqIndex++; renderFq(); }
+    else{
+      var score = fqAnswers.reduce(function(acc,a,i){ return acc + (a===fq[i].correct?1:0); },0);
+      document.getElementById('fqScoreFinal').textContent = score + ' / ' + fq.length;
+      document.getElementById('fqScoreLabel').textContent =
+        score === fq.length ? "Perfect — the gateway's actual scope is fully clear." :
+        score >= fq.length-1 ? "Almost — worth a quick re-read above." :
+        "Worth another pass through the \"what it enforces\" and risk-pattern sections.";
+      document.getElementById('fqResult').classList.add('show');
+      document.getElementById('fqQuestion').style.display='none';
+      document.querySelector('.fq-nav').style.display='none';
+    }
+  });
+  document.getElementById('fqPrev').addEventListener('click', function(){ if(fqIndex>0){ fqIndex--; renderFq(); } });
+  document.getElementById('fqRestart').addEventListener('click', function(){
+    fqIndex=0; fqAnswers = new Array(fq.length).fill(null);
+    document.getElementById('fqResult').classList.remove('show');
+    document.getElementById('fqQuestion').style.display='';
+    document.querySelector('.fq-nav').style.display='';
+    renderFq();
+  });
+  renderFq();
+
+  /* flashcards */
+  var cards = [
+    {q:"What are the three things MCP Gateway enforces?", a:"Discovery (which servers exist), access control (which tools are callable), and message routing (getting requests to the right container)."},
+    {q:"Why does the agent only ever talk to one endpoint?", a:"So it has no direct path to any tool server that discovery and access control didn't already approve — the gateway is the sole trust boundary."},
+    {q:"What problem does Tool Composition solve that Smart Search alone doesn't?", a:"It lets an agent combine existing tools into a new one inside a sandboxed step, cutting down on many separate round-trips through the gateway."},
+    {q:"What was Meta-Context Injection, in one sentence?", a:"An AI assistant treated untrusted image metadata as a user instruction and forwarded it to the gateway, which executed it without further validation."},
+    {q:"What was Docker's actual fix for the Ask Gordon incident?", a:"Blocking a specific exfiltration path and requiring explicit human confirmation before any MCP tool call — restoring a human decision point."}
+  ];
+  var fcGrid = document.getElementById('fcGrid');
+  cards.forEach(function(c){
+    var el = document.createElement('div');
+    el.className='flashcard'; el.tabIndex=0;
+    el.innerHTML = '<div class="fc-inner"><div class="fc-face fc-front">'+c.q+'<span class="fc-hint">click to flip</span></div><div class="fc-face fc-back">'+c.a+'</div></div>';
+    el.addEventListener('click', function(){ el.classList.toggle('flipped'); });
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.classList.toggle('flipped'); } });
+    fcGrid.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>

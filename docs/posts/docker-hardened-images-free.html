@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker Hardened Images Go Free: What 1,000+ Hardened Images Means for Your Supply Chain</title>
+<meta name="description" content="Docker's catalog of 1,000+ Hardened Images is now free under Apache 2.0. What actually changed, why hardened base images cut CVE exposure, and what to check when you migrate a Dockerfile.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #9437FF;
+    --purple-deep: #6B21C9;
+    --pink: #F73DF1;
+    --blue: #3FD9FB;
+    --ink: #171321;
+    --ink-soft: #4a4658;
+    --ink-dim: #7d7a89;
+    --line: #ECE7F5;
+    --surface: #FFFFFF;
+    --surface-tint: #FAF8FE;
+    --term-bg: #14111c;
+    --green: #4ADE80;
+    --amber: #FBC473;
+    --red: #FF4747;
+    --radius-lg: 20px;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", "SF Mono", Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(148,55,255,0.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(247,61,241,0.05), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 50% 100%, rgba(63,217,251,0.05), transparent 60%),
+      var(--surface);
+    line-height: 1.6;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--purple-deep); }
+  a:hover{ color: var(--pink); }
+  ::selection{ background: var(--pink); color: #fff; }
+  :focus-visible{ outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 4px; }
+
+  .page{ max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+  .crumb{ font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); margin-bottom: 26px; }
+  .crumb a{ color: var(--ink-soft); text-decoration:none; }
+  .crumb a:hover{ color: var(--purple); }
+
+  .kicker{ display:inline-flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: linear-gradient(90deg, var(--purple), var(--pink)); padding: 6px 14px; border-radius: 999px; margin-bottom: 18px; }
+
+  h1{ font-weight: 600; font-size: clamp(1.75rem, 4.4vw, 2.4rem); line-height: 1.14; letter-spacing: -0.03em; margin: 0 0 16px; }
+  .lede{ font-size: 1.08rem; color: var(--ink-soft); max-width: 62ch; margin: 0 0 26px; }
+  .meta-bar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 44px; }
+  .chip{ font-family: var(--mono); font-size: 12px; color: var(--ink-soft); background: var(--surface-tint); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
+  .chip b{ color: var(--purple-deep); font-weight: 600; }
+
+  section{ margin-bottom: 54px; }
+  .eyebrow{ display:flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--purple-deep); margin-bottom: 14px; }
+  .eyebrow::before{ content:""; width:16px; height:2px; background: linear-gradient(90deg,var(--purple),var(--pink)); border-radius:2px; }
+  h2{ font-weight: 600; font-size: 1.5rem; letter-spacing: -0.02em; margin: 0 0 16px; }
+  h3{ font-weight: 600; font-size: 1rem; margin: 20px 0 10px; color: var(--purple-deep); }
+  p{ margin: 0 0 14px; color: var(--ink-soft); }
+  section > p:last-child{ margin-bottom:0; }
+  strong{ color: var(--ink); }
+  code{ font-family: var(--mono); font-size: 0.87em; background: var(--surface-tint); border: 1px solid var(--line); padding: 2px 6px; border-radius: 5px; color: var(--purple-deep); }
+
+  .reveal{ opacity:0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  .def-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin: 18px 0 8px; }
+  .def-card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .def-card .term{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+  .def-card .body{ font-size:0.9rem; color: var(--ink-dim); margin:0; }
+
+  .tbl-wrap{ overflow-x:auto; margin: 18px 0; border: 1px solid var(--line); border-radius: var(--radius); }
+  table{ width:100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td{ text-align:left; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  th{ font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple-deep); font-weight: 600; background: var(--surface-tint); }
+  td{ color: var(--ink-soft); }
+  tr td:first-child{ color: var(--ink); font-weight: 500; }
+  tr:last-child td{ border-bottom:none; }
+
+  .term-label{ font-family: var(--mono); font-size: 11.5px; text-transform:uppercase; letter-spacing:0.1em; color: var(--ink-dim); margin-bottom:8px; }
+  .terminal{ background: var(--term-bg); border-radius: var(--radius); overflow:hidden; margin: 8px 0 22px; box-shadow: 0 12px 32px rgba(23,19,33,0.18); }
+  .terminal .bar{ display:flex; gap:6px; padding:10px 14px; background:#1c1826; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .terminal .dot{ width:10px;height:10px;border-radius:50%; }
+  .dot.r{ background:#FF474766; } .dot.y{ background:#FBC47366; } .dot.g{ background:#4ADE8066; }
+  .terminal pre{ margin:0; padding:16px 18px; font-family: var(--mono); font-size:0.84rem; line-height:1.7; overflow-x:auto; color:#e9e6f2; }
+  .terminal .c{ color:#8b869e; }
+
+  /* unified annotated-code widget */
+  .code-widget{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px; margin: 16px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .code-widget-head{ text-align:center; padding: 2px 0 10px; }
+  .code-widget-title{ font-family: var(--mono); font-size:12.5px; font-weight:600; letter-spacing:0.08em; color: var(--ink-soft); text-transform: uppercase; margin:0 0 4px; }
+  .code-widget-sub{ font-size:0.83rem; color: var(--ink-dim); }
+  .code-wrap{ display:grid; grid-template-columns: 1.05fr 1fr; gap:8px; align-items:start; }
+  .code-panel{ background: var(--term-bg); border-radius: var(--radius-sm); padding:10px 0; font-family: var(--mono); font-size:0.8rem; line-height:1.6; overflow-x:auto; }
+  .code-panel pre{ margin:0; padding:0 12px; }
+  .cline{ display:block; padding:1px 8px 1px 10px; border-left:3px solid transparent; border-radius:3px; cursor:pointer; white-space:pre; color:#e9e6f2; transition: background .15s, border-color .15s; }
+  .cline:hover{ background: rgba(148,55,255,0.16); }
+  .cline.active{ background: rgba(247,61,241,0.18); border-left-color: var(--pink); color:#fff; }
+  .cline.no-note{ cursor:default; } .cline.no-note:hover{ background:none; }
+  .code-note{ background: var(--surface-tint); border-radius: var(--radius-sm); padding:12px 14px; font-size:0.87rem; color: var(--ink-soft); }
+  .code-note .tag{ font-family: var(--mono); font-size:13px; font-weight:600; color: var(--purple-deep); display:block; margin-bottom:6px; }
+  .code-note-tip{ margin-top:10px; background: rgba(251,196,115,0.14); border-left:3px solid var(--amber); border-radius:0 4px 4px 0; padding:7px 11px; font-size:0.82rem; color:#8a5a06; }
+  .code-hint{ font-size:0.76rem; color: var(--ink-dim); margin:8px 2px 0; }
+  @media (max-width:640px){ .code-wrap{ grid-template-columns:1fr; } }
+
+  .quiz{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 22px 0; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .quiz .qlabel{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--purple-deep); margin-bottom:8px; display:block; font-weight:600; }
+  .quiz .qtext{ font-weight:600; margin-bottom:14px; color: var(--ink); }
+  .qopt{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius: var(--radius-sm); margin-bottom:8px; cursor:pointer; font-size:0.92rem; transition: border-color .15s, background .15s; }
+  .qopt:hover{ border-color: var(--purple); }
+  .qopt.correct{ border-color: var(--green); background: rgba(74,222,128,0.1); }
+  .qopt.incorrect{ border-color: var(--red); background: rgba(255,71,71,0.08); }
+  .qopt input{ margin-top:3px; accent-color: var(--purple); }
+  .qfeedback{ font-size:0.87rem; margin-top:10px; padding:10px 12px; border-radius: var(--radius-sm); display:none; }
+  .qfeedback.show{ display:block; }
+  .qfeedback.ok{ background: rgba(74,222,128,0.12); color:#1c8a4d; }
+  .qfeedback.no{ background: rgba(255,71,71,0.1); color:#c1272d; }
+
+  .callout{ border-radius: var(--radius); padding: 18px 20px; margin: 18px 0; border:1px solid rgba(251,196,115,0.4); background: rgba(251,196,115,0.08); }
+  .callout .tag{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#8a5a06; display:block; margin-bottom:10px; font-weight:600; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  .fq-box{ background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:22px 24px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .fq-progress{ display:flex; justify-content:space-between; font-family: var(--mono); font-size:0.75rem; color: var(--ink-dim); margin-bottom:16px; }
+  .fq-bar{ height:4px; background: var(--line); border-radius:2px; overflow:hidden; margin-bottom:20px; }
+  .fq-bar-fill{ height:100%; background: linear-gradient(90deg,var(--purple),var(--pink)); transition: width .3s ease; width:25%; }
+  .fq-nav{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn{ font-family: var(--sans); font-weight:600; font-size:0.9rem; border:none; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:10px 22px; border-radius:999px; cursor:pointer; transition: transform .15s, box-shadow .15s; box-shadow: 0 8px 20px rgba(148,55,255,0.25); }
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 12px 26px rgba(148,55,255,0.35); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn.ghost{ background: var(--surface); color: var(--purple-deep); border: 1.5px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover{ border-color: var(--purple); }
+  .fq-result{ text-align:center; padding:20px 0 6px; display:none; }
+  .fq-result.show{ display:block; }
+  .fq-score{ font-size:2.3rem; font-weight:700; background: linear-gradient(90deg,var(--purple),var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .fc-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:18px 0; }
+  .flashcard{ perspective:1200px; height:150px; cursor:pointer; }
+  .fc-inner{ position:relative; width:100%; height:100%; transition: transform .5s; transform-style: preserve-3d; }
+  .flashcard.flipped .fc-inner{ transform: rotateY(180deg); }
+  .fc-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius: var(--radius); border:1px solid var(--line); padding:16px 18px; display:flex; align-items:center; font-size:0.87rem; box-shadow: 0 8px 22px rgba(148,55,255,0.08); }
+  .fc-front{ background: var(--surface); color: var(--ink); }
+  .fc-back{ background: linear-gradient(135deg, var(--purple), var(--pink)); color:#fff; transform: rotateY(180deg); font-family: var(--mono); font-size:0.8rem; }
+  .fc-hint{ font-family: var(--mono); font-size:0.66rem; color: var(--ink-dim); position:absolute; bottom:10px; right:14px; }
+
+  .ns-grid{ display:flex; flex-direction:column; gap:12px; }
+  .ns-card{ display:block; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:14px 16px; text-decoration:none; transition: border-color .15s, transform .15s; }
+  .ns-card:hover{ border-color: var(--purple); transform: translateX(3px); }
+  .ns-card .title{ color: var(--purple-deep); font-weight:600; font-size:0.95rem; margin-bottom:3px; }
+  .ns-card .why{ color: var(--ink-dim); font-size:0.84rem; }
+
+  footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="crumb reveal in"><a href="#">Blog</a> › Applied / Comparison › Supply Chain Security</div>
+
+  <header class="reveal in">
+    <span class="kicker">Applied / Comparison</span>
+    <h1>Docker Hardened Images Go Free: What 1,000+ Hardened Images Means for Your Supply Chain</h1>
+    <p class="lede">A catalog that used to sit behind an enterprise contract is now a <code>docker pull</code> away. That changes the calculus on which base image is the "default" choice for a new Dockerfile — but migrating an existing one takes a bit more than a one-line swap.</p>
+    <div class="meta-bar">
+      <span class="chip">Estimated time <b>11 min</b></span>
+      <span class="chip">Format <b>applied comparison</b></span>
+      <span class="chip">Since <b>Dec 2025</b></span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- WHAT CHANGED -->
+    <section>
+      <span class="eyebrow">what changed</span>
+      <h2>1,000+ images, free, Apache 2.0</h2>
+      <p>Docker Hardened Images (DHI) launched in May 2025 as a commercial catalog. In December 2025, Docker made the entire catalog — more than 1,000 images built on Debian and Alpine, covering runtimes, frameworks, databases, and infrastructure tooling — free and open source under Apache 2.0, available through <code>dhi.io</code> and Docker Hub.</p>
+
+      <div class="tbl-wrap">
+        <table>
+          <tr><th></th><th>Free (Community)</th><th>Enterprise</th></tr>
+          <tr><td>Catalog access</td><td>Full 1,000+ image catalog</td><td>Same catalog</td></tr>
+          <tr><td>SBOM, provenance, CVE data</td><td>Included</td><td>Included</td></tr>
+          <tr><td>Compliance (FIPS, DoD STIG)</td><td>Not included</td><td>Included</td></tr>
+          <tr><td>Critical CVE remediation SLA</td><td>Best-effort</td><td>7-day commitment</td></tr>
+          <tr><td>Custom/private hardened builds</td><td>Not included</td><td>Included</td></tr>
+        </table>
+      </div>
+      <p>For most teams outside regulated industries, the free tier is the meaningful change — everything that made these images worth using is no longer paywalled, and only the compliance guarantees and SLAs stay commercial.</p>
+    </section>
+
+    <!-- WHY IT MATTERS -->
+    <section>
+      <span class="eyebrow">why it matters</span>
+      <h2>Why the base image is where CVE exposure actually starts</h2>
+      <p>A standard base image typically ships a full OS userland — a shell, a package manager, compilers, debugging tools — most of which your application never touches at runtime but which all still count toward your attack surface and CVE count. DHI images are distroless-style: no shell, no package manager, non-root by default, stripped to what the runtime actually needs.</p>
+
+      <div class="def-grid">
+        <div class="def-card"><div class="term">Distroless</div><p class="body">No shell, no package manager, minimal OS layer — there's very little left in the image for an attacker to repurpose even after gaining code execution.</p></div>
+        <div class="def-card"><div class="term">Attack surface</div><p class="body">Every binary and library present in an image, whether your app uses it or not — fewer packages means fewer places a CVE can land.</p></div>
+        <div class="def-card"><div class="term">Provenance</div><p class="body">A verifiable record of how an image was built (SLSA Build Level 3) — proof it's what it claims to be, not just a scan result you have to trust.</p></div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <tr><th></th><th>Standard image (illustrative)</th><th>DHI equivalent</th></tr>
+          <tr><td>node base image</td><td>500+ packages</td><td>~10–20 packages</td></tr>
+          <tr><td>nginx:alpine</td><td>~80MB</td><td>~16MB</td></tr>
+          <tr><td>Shell present?</td><td>Yes</td><td>No</td></tr>
+          <tr><td>Runs as root by default?</td><td>Often, yes</td><td>No — non-root by default</td></tr>
+        </table>
+      </div>
+      <p>The exact package and size deltas vary by image and are worth checking for your specific base, not treated as a universal guarantee — but the direction and rough magnitude hold consistently across the catalog: fewer packages, smaller images, materially fewer places for a known CVE to exist in the first place.</p>
+    </section>
+
+    <!-- MIGRATION -->
+    <section>
+      <span class="eyebrow">practical migration guidance</span>
+      <h2>Pulling a DHI and what actually breaks</h2>
+      <p>Pulling the image itself is close to the easy part — <code>docker login dhi.io</code>, then swap the <code>FROM</code> line. What follows the swap is where the distroless design shows up in your build:</p>
+
+      <div class="code-widget">
+        <div class="code-widget-head">
+          <div class="code-widget-title">Dockerfile — after swapping to a hardened base</div>
+          <div class="code-widget-sub">Click any highlighted line to see what changed and why</div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-panel"><pre id="dfCode"></pre></div>
+          <div class="code-note" id="dfNote">
+            <span class="tag">Click a line to start</span>
+            Select any highlighted line on the left to see what it controls.
+          </div>
+        </div>
+        <div class="code-hint">Every line below reflects a real distroless constraint — not something specific to one language's image.</div>
+      </div>
+
+      <div class="term-label">If you need a shell to poke around, don't rely on exec</div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+        <pre><span class="c"># This fails — there's no shell inside a distroless image</span>
+docker exec -it my-container sh
+
+<span class="c"># This works — attaches a debug toolbox without modifying the image</span>
+docker debug my-container</pre>
+      </div>
+
+      <div class="quiz" data-quiz>
+        <span class="qlabel">Check your understanding</span>
+        <div class="qtext">A Dockerfile has a line <code>RUN apt-get update && apt-get install -y curl</code>. After swapping to a hardened base image, what happens?</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Nothing — apt-get still works the same</div>
+        <div class="qopt" data-correct="true"><input type="radio" name="q1"> It breaks — there's no package manager in the hardened image</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> It installs curl into a separate sidecar automatically</div>
+        <div class="qfeedback"></div>
+      </div>
+    </section>
+
+    <!-- HONEST SKEPTICISM -->
+    <section>
+      <span class="eyebrow">worth keeping in mind</span>
+      <div class="callout">
+        <span class="tag">A fair caveat</span>
+        <p>Some developers have greeted the free tier with justified caution rather than pure enthusiasm, pointing to Docker's own history of narrowing free offerings — Docker Hub pull-rate limits, and pricing changes to Docker Desktop's free tier, among them. None of that means DHI won't stay free; it means treating "free forever" as a current fact rather than a permanent guarantee is the more defensible position, the same way it would be for any vendor's free tier.</p>
+      </div>
+    </section>
+
+    <!-- GOVERNANCE FIT -->
+    <section>
+      <span class="eyebrow">the fuller picture</span>
+      <h2>Where this fits alongside Docker AI Governance</h2>
+      <p>Hardened images and AI Governance solve adjacent but distinct halves of a supply-chain story. DHI is about the artifact itself — is this specific image's provenance verifiable, and is its attack surface actually minimal. Governance is about behavior — which images, registries, and tools an agent or developer is even allowed to reach in the first place.</p>
+      <p>Put together, an organization can go a step further than just adopting hardened images individually: a centrally defined Governance policy can require that only images from the hardened catalog are pullable at all, so the "use the hardened base" decision stops being something every developer or agent has to remember on their own, and becomes something the platform simply enforces.</p>
+    </section>
+
+    <!-- FINAL QUIZ -->
+    <section>
+      <span class="eyebrow">check what you've learned</span>
+      <h2>Four-question recap</h2>
+      <div class="fq-box">
+        <div class="fq-progress"><span id="fqPos">Q 1 / 4</span><span></span></div>
+        <div class="fq-bar"><div class="fq-bar-fill" id="fqBarFill"></div></div>
+        <div id="fqQuestion"></div>
+        <div class="fq-nav">
+          <button class="btn ghost" id="fqPrev" disabled>Back</button>
+          <button class="btn" id="fqNext">Next</button>
+        </div>
+        <div class="fq-result" id="fqResult">
+          <div class="fq-score" id="fqScoreFinal"></div>
+          <p id="fqScoreLabel"></p>
+          <button class="btn" id="fqRestart">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLASHCARDS -->
+    <section>
+      <span class="eyebrow">flashcards</span>
+      <h2>Click to reveal</h2>
+      <div class="fc-grid" id="fcGrid"></div>
+    </section>
+
+    <!-- NEXT STEPS -->
+    <section>
+      <span class="eyebrow">next steps</span>
+      <h2>Where to go from here</h2>
+      <div class="ns-grid">
+        <a class="ns-card" href="https://www.docker.com/press-release/docker-makes-hardened-images-free-open-and-transparent-for-everyone/" target="_blank" rel="noopener">
+          <div class="title">Docker's official announcement ↗</div>
+          <div class="why">The primary source for what changed, the licensing terms, and what stays in the enterprise tier.</div>
+        </a>
+        <a class="ns-card" href="https://dhi.io" target="_blank" rel="noopener">
+          <div class="title">dhi.io — the DHI catalog ↗</div>
+          <div class="why">Browse the full 1,000+ image catalog and request new images if yours isn't covered yet.</div>
+        </a>
+        <a class="ns-card" href="https://docs.docker.com/ai/sandboxes/governance/" target="_blank" rel="noopener">
+          <div class="title">Docker AI Governance documentation ↗</div>
+          <div class="why">For enforcing "hardened images only" as an org-wide policy instead of a per-developer habit.</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>Blog · Applied / Comparison · Supply Chain Security</footer>
+</div>
+
+<script>
+(function(){
+  var revealEls = document.querySelectorAll('section');
+  revealEls.forEach(function(el){ el.classList.add('reveal'); });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  }, {threshold:0.08});
+  revealEls.forEach(function(el){ io.observe(el); });
+
+  /* annotated Dockerfile diff */
+  var dfLines = [
+    {t:"FROM dhi.io/node:20-debian13", note:"Pulled from Docker's hardened registry instead of Docker Hub's standard node image — requires docker login dhi.io once beforehand."},
+    {t:"", note:null},
+    {t:"WORKDIR /app", note:null},
+    {t:"COPY --chown=nonroot:nonroot . .", note:"Ownership has to be set explicitly at copy time. Since the image runs as non-root by default, files copied in as root won't be readable or writable by the process that actually runs."},
+    {t:"", note:null},
+    {t:"RUN npm ci --omit=dev", note:"Still works — Node and npm are present, this isn't a distroless-only-at-runtime image. What's missing is OS-level tooling, not the language runtime itself.", tip:"If this line also tried apt-get install for an OS package, it would fail — there's no package manager here."},
+    {t:"", note:null},
+    {t:"USER nonroot", note:"Explicit here for clarity, though DHI images already default to non-root. Worth keeping visible in the Dockerfile so it isn't silently relied on."},
+    {t:"ENTRYPOINT [\"node\", \"server.js\"]", note:"Exec form is required, not shell form (ENTRYPOINT node server.js). There's no /bin/sh in the image to interpret a shell-form command — exec form runs the binary directly."}
+  ];
+  var dfEl = document.getElementById('dfCode');
+  dfLines.forEach(function(line){
+    var span = document.createElement('span');
+    span.className = 'cline' + (line.note ? '' : ' no-note');
+    span.textContent = line.t;
+    if(line.note){ span.dataset.note = line.note; }
+    if(line.tip){ span.dataset.tip = line.tip; }
+    dfEl.appendChild(span);
+    dfEl.appendChild(document.createTextNode('\n'));
+  });
+  dfEl.querySelectorAll('.cline').forEach(function(span){
+    if(!span.dataset.note) return;
+    span.addEventListener('click', function(){
+      dfEl.querySelectorAll('.cline').forEach(function(s){ s.classList.remove('active'); });
+      span.classList.add('active');
+      var html = '<span class="tag">' + span.textContent.trim() + '</span>' + span.dataset.note;
+      if(span.dataset.tip){ html += '<div class="code-note-tip">' + span.dataset.tip + '</div>'; }
+      document.getElementById('dfNote').innerHTML = html;
+    });
+  });
+
+  document.querySelectorAll('[data-quiz]').forEach(function(quiz){
+    var opts = quiz.querySelectorAll('.qopt');
+    var fb = quiz.querySelector('.qfeedback');
+    opts.forEach(function(opt){
+      opt.addEventListener('click', function(){
+        var input = opt.querySelector('input'); input.checked = true;
+        opts.forEach(function(o){ o.classList.remove('correct','incorrect'); });
+        var isCorrect = opt.dataset.correct === 'true';
+        opt.classList.add(isCorrect ? 'correct' : 'incorrect');
+        if(!isCorrect){ opts.forEach(function(o){ if(o.dataset.correct==='true'){ o.classList.add('correct'); } }); }
+        fb.textContent = isCorrect ? "Right — no shell, no package manager, so anything relying on either has to move earlier in the build or go away entirely." : "Not quite — think about what distroless actually strips out of the image.";
+        fb.className = 'qfeedback show ' + (isCorrect ? 'ok' : 'no');
+      });
+    });
+  });
+
+  var fq = [
+    {q:"What changed about Docker Hardened Images in December 2025?", opts:["They were discontinued","The full 1,000+ image catalog became free under Apache 2.0","Prices doubled for enterprise customers","They merged with Docker Hub's free tier limits"], correct:1},
+    {q:"What stays in the paid enterprise tier?", opts:["The image catalog itself","SBOM and CVE data","Compliance features like FIPS/DoD STIG and a CVE remediation SLA","Nothing — everything is free now"], correct:2},
+    {q:"Why does docker exec -it my-container sh fail on a hardened image?", opts:["The container isn't running","There's no shell inside a distroless image", "exec is deprecated","Non-root users can't use exec"], correct:1},
+    {q:"How can Docker AI Governance complement hardened images at an org level?", opts:["It can't — they're unrelated features","It can require that only hardened-catalog images are pullable at all, enforced centrally","It replaces the need for hardened images","It only applies to MCP servers, not base images"], correct:1}
+  ];
+  var fqIndex = 0, fqAnswers = new Array(fq.length).fill(null);
+  function renderFq(){
+    var item = fq[fqIndex];
+    document.getElementById('fqPos').textContent = 'Q ' + (fqIndex+1) + ' / ' + fq.length;
+    document.getElementById('fqBarFill').style.width = (((fqIndex+1)/fq.length)*100) + '%';
+    var html = '<div class="qtext" style="margin-bottom:14px;">' + item.q + '</div>';
+    item.opts.forEach(function(opt,i){
+      var picked = fqAnswers[fqIndex]; var cls='';
+      if(picked !== null){ if(i===item.correct) cls=' correct'; else if(i===picked) cls=' incorrect'; }
+      html += '<div class="qopt'+cls+'" data-i="'+i+'"><input type="radio" name="fqopt" '+(picked===i?'checked':'')+'> '+opt+'</div>';
+    });
+    document.getElementById('fqQuestion').innerHTML = html;
+    document.getElementById('fqPrev').disabled = fqIndex === 0;
+    document.getElementById('fqNext').textContent = fqIndex === fq.length-1 ? 'Finish' : 'Next';
+    document.querySelectorAll('#fqQuestion .qopt').forEach(function(opt){
+      opt.addEventListener('click', function(){
+        if(fqAnswers[fqIndex] !== null) return;
+        fqAnswers[fqIndex] = parseInt(opt.dataset.i,10);
+        renderFq();
+      });
+    });
+  }
+  document.getElementById('fqNext').addEventListener('click', function(){
+    if(fqIndex < fq.length-1){ fqIndex++; renderFq(); }
+    else{
+      var score = fqAnswers.reduce(function(acc,a,i){ return acc + (a===fq[i].correct?1:0); },0);
+      document.getElementById('fqScoreFinal').textContent = score + ' / ' + fq.length;
+      document.getElementById('fqScoreLabel').textContent =
+        score === fq.length ? "Perfect — the free/paid split is fully clear." :
+        score >= fq.length-1 ? "Almost — worth a quick re-read above." :
+        "Worth another pass through the migration and governance sections.";
+      document.getElementById('fqResult').classList.add('show');
+      document.getElementById('fqQuestion').style.display='none';
+      document.querySelector('.fq-nav').style.display='none';
+    }
+  });
+  document.getElementById('fqPrev').addEventListener('click', function(){ if(fqIndex>0){ fqIndex--; renderFq(); } });
+  document.getElementById('fqRestart').addEventListener('click', function(){
+    fqIndex=0; fqAnswers = new Array(fq.length).fill(null);
+    document.getElementById('fqResult').classList.remove('show');
+    document.getElementById('fqQuestion').style.display='';
+    document.querySelector('.fq-nav').style.display='';
+    renderFq();
+  });
+  renderFq();
+
+  var cards = [
+    {q:"When did Docker's full DHI catalog become free, and under what license?", a:"December 17, 2025, under the Apache 2.0 license — 1,000+ images built on Debian and Alpine."},
+    {q:"What are the two main things that stay behind the enterprise tier?", a:"Compliance certifications (FIPS, DoD STIG) and a guaranteed critical-CVE remediation SLA — plus custom/private hardened builds."},
+    {q:"Why does a hardened image need explicit --chown on COPY?", a:"Because it runs as non-root by default — files copied in without the right ownership won't be usable by the process."},
+    {q:"What's the exec-form vs shell-form issue with ENTRYPOINT on a hardened image?", a:"Shell form needs /bin/sh to interpret the command, which doesn't exist in a distroless image — exec form (JSON array syntax) is required."},
+    {q:"What tool replaces 'exec into a shell' for debugging a shell-less container?", a:"docker debug — attaches a debug toolbox to the running container without modifying the image itself."}
+  ];
+  var fcGrid = document.getElementById('fcGrid');
+  cards.forEach(function(c){
+    var el = document.createElement('div');
+    el.className='flashcard'; el.tabIndex=0;
+    el.innerHTML = '<div class="fc-inner"><div class="fc-face fc-front">'+c.q+'<span class="fc-hint">click to flip</span></div><div class="fc-face fc-back">'+c.a+'</div></div>';
+    el.addEventListener('click', function(){ el.classList.toggle('flipped'); });
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.classList.toggle('flipped'); } });
+    fcGrid.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>

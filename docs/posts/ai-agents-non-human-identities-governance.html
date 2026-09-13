@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agents Are Non-Human Identities Now — Is Your Governance Model Ready?</title>
+<meta name="description" content="Agents now initiate actions autonomously, at machine speed, mostly outside human visibility. Traditional IAM was never built for that. What actually governing an agent identity requires — and how one industry response is shaping up.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #9437FF;
+    --purple-deep: #6B21C9;
+    --pink: #F73DF1;
+    --blue: #3FD9FB;
+    --ink: #171321;
+    --ink-soft: #4a4658;
+    --ink-dim: #7d7a89;
+    --line: #ECE7F5;
+    --surface: #FFFFFF;
+    --surface-tint: #FAF8FE;
+    --green: #4ADE80;
+    --red: #FF4747;
+    --radius-lg: 20px;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", "SF Mono", Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(148,55,255,0.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(247,61,241,0.05), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 50% 100%, rgba(63,217,251,0.05), transparent 60%),
+      var(--surface);
+    line-height: 1.6;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--purple-deep); }
+  a:hover{ color: var(--pink); }
+  ::selection{ background: var(--pink); color: #fff; }
+  :focus-visible{ outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 4px; }
+
+  .page{ max-width: 760px; margin: 0 auto; padding: 48px 24px 90px; }
+  .crumb{ font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); margin-bottom: 26px; }
+  .crumb a{ color: var(--ink-soft); text-decoration:none; }
+  .crumb a:hover{ color: var(--purple); }
+
+  .kicker{ display:inline-flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: linear-gradient(90deg, var(--purple), var(--pink)); padding: 6px 14px; border-radius: 999px; margin-bottom: 18px; }
+
+  h1{ font-weight: 600; font-size: clamp(1.85rem, 4.8vw, 2.6rem); line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 16px; }
+  .lede{ font-size: 1.08rem; color: var(--ink-soft); max-width: 62ch; margin: 0 0 26px; }
+  .meta-bar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 44px; }
+  .chip{ font-family: var(--mono); font-size: 12px; color: var(--ink-soft); background: var(--surface-tint); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
+  .chip b{ color: var(--purple-deep); font-weight: 600; }
+
+  section{ margin-bottom: 56px; }
+  .eyebrow{ display:flex; align-items:center; gap:8px; font-family: var(--mono); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--purple-deep); margin-bottom: 14px; }
+  .eyebrow::before{ content:""; width:16px; height:2px; background: linear-gradient(90deg,var(--purple),var(--pink)); border-radius:2px; }
+  h2{ font-weight: 600; font-size: 1.55rem; letter-spacing: -0.02em; margin: 0 0 16px; }
+  h3{ font-weight: 600; font-size: 1rem; margin: 20px 0 10px; color: var(--purple-deep); }
+  p{ margin: 0 0 14px; color: var(--ink-soft); }
+  section > p:last-child{ margin-bottom:0; }
+  strong{ color: var(--ink); }
+  code{ font-family: var(--mono); font-size: 0.87em; background: var(--surface-tint); border: 1px solid var(--line); padding: 2px 6px; border-radius: 5px; color: var(--purple-deep); }
+
+  .reveal{ opacity:0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  .def-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin: 18px 0 8px; }
+  .def-card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .def-card .term{ font-weight:600; color: var(--purple-deep); margin-bottom:6px; }
+  .def-card .body{ font-size:0.9rem; color: var(--ink-dim); margin:0; }
+
+  .pull-quote{ font-size: 1.15rem; font-weight: 500; color: var(--ink); border-left: 3px solid var(--pink); padding: 4px 0 4px 20px; margin: 26px 0; line-height: 1.5; }
+
+  .tbl-wrap{ overflow-x:auto; margin: 18px 0; border: 1px solid var(--line); border-radius: var(--radius); }
+  table{ width:100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td{ text-align:left; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  th{ font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple-deep); font-weight: 600; background: var(--surface-tint); }
+  td{ color: var(--ink-soft); }
+  tr td:first-child{ color: var(--ink); font-weight: 500; }
+  tr:last-child td{ border-bottom:none; }
+
+  .quiz{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 22px 0; box-shadow: 0 8px 24px rgba(148,55,255,0.06); }
+  .quiz .qlabel{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--purple-deep); margin-bottom:8px; display:block; font-weight:600; }
+  .quiz .qtext{ font-weight:600; margin-bottom:14px; color: var(--ink); }
+  .qopt{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius: var(--radius-sm); margin-bottom:8px; cursor:pointer; font-size:0.92rem; transition: border-color .15s, background .15s; }
+  .qopt:hover{ border-color: var(--purple); }
+  .qopt.correct{ border-color: var(--green); background: rgba(74,222,128,0.1); }
+  .qopt.incorrect{ border-color: var(--red); background: rgba(255,71,71,0.08); }
+  .qopt input{ margin-top:3px; accent-color: var(--purple); }
+  .qfeedback{ font-size:0.87rem; margin-top:10px; padding:10px 12px; border-radius: var(--radius-sm); display:none; }
+  .qfeedback.show{ display:block; }
+  .qfeedback.ok{ background: rgba(74,222,128,0.12); color:#1c8a4d; }
+  .qfeedback.no{ background: rgba(255,71,71,0.1); color:#c1272d; }
+
+  .callout{ border-radius: var(--radius); padding: 18px 20px; margin: 18px 0; border:1px solid rgba(255,71,71,0.25); background: rgba(255,71,71,0.05); }
+  .callout .tag{ font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#c1272d; display:block; margin-bottom:10px; font-weight:600; }
+  .callout .belief{ font-style: italic; color: var(--ink-soft); margin-bottom:12px; }
+  .callout .reality-label{ font-weight:600; color: var(--purple-deep); font-size:0.85rem; margin-bottom:4px; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  .req-grid{ display:flex; flex-direction:column; gap:12px; margin: 18px 0; }
+  .req-item{ display:flex; gap:14px; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:14px 16px; box-shadow: 0 8px 22px rgba(148,55,255,0.06); }
+  .req-num{ font-family: var(--mono); font-weight:700; font-size:0.95rem; color: #fff; background: linear-gradient(135deg,var(--purple),var(--pink)); width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .req-body .title{ font-weight:600; color: var(--ink); font-size:0.95rem; margin-bottom:3px; }
+  .req-body .desc{ font-size:0.87rem; color: var(--ink-dim); }
+
+  .fq-box{ background: var(--surface); border:1px solid var(--line); border-radius: var(--radius-lg); padding:22px 24px; margin:18px 0; box-shadow: 0 10px 30px rgba(148,55,255,0.08); }
+  .fq-progress{ display:flex; justify-content:space-between; font-family: var(--mono); font-size:0.75rem; color: var(--ink-dim); margin-bottom:16px; }
+  .fq-bar{ height:4px; background: var(--line); border-radius:2px; overflow:hidden; margin-bottom:20px; }
+  .fq-bar-fill{ height:100%; background: linear-gradient(90deg,var(--purple),var(--pink)); transition: width .3s ease; width:20%; }
+  .fq-nav{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn{ font-family: var(--sans); font-weight:600; font-size:0.9rem; border:none; color:#fff; background: linear-gradient(90deg,var(--purple),var(--pink)); padding:10px 22px; border-radius:999px; cursor:pointer; transition: transform .15s, box-shadow .15s; box-shadow: 0 8px 20px rgba(148,55,255,0.25); }
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 12px 26px rgba(148,55,255,0.35); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn.ghost{ background: var(--surface); color: var(--purple-deep); border: 1.5px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover{ border-color: var(--purple); }
+  .fq-result{ text-align:center; padding:20px 0 6px; display:none; }
+  .fq-result.show{ display:block; }
+  .fq-score{ font-size:2.3rem; font-weight:700; background: linear-gradient(90deg,var(--purple),var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .fc-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:18px 0; }
+  .flashcard{ perspective:1200px; height:150px; cursor:pointer; }
+  .fc-inner{ position:relative; width:100%; height:100%; transition: transform .5s; transform-style: preserve-3d; }
+  .flashcard.flipped .fc-inner{ transform: rotateY(180deg); }
+  .fc-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius: var(--radius); border:1px solid var(--line); padding:16px 18px; display:flex; align-items:center; font-size:0.87rem; box-shadow: 0 8px 22px rgba(148,55,255,0.08); }
+  .fc-front{ background: var(--surface); color: var(--ink); }
+  .fc-back{ background: linear-gradient(135deg, var(--purple), var(--pink)); color:#fff; transform: rotateY(180deg); font-family: var(--mono); font-size:0.8rem; }
+  .fc-hint{ font-family: var(--mono); font-size:0.66rem; color: var(--ink-dim); position:absolute; bottom:10px; right:14px; }
+
+  .ns-grid{ display:flex; flex-direction:column; gap:12px; }
+  .ns-card{ display:block; background: var(--surface); border:1px solid var(--line); border-radius: var(--radius); padding:14px 16px; text-decoration:none; transition: border-color .15s, transform .15s; }
+  .ns-card:hover{ border-color: var(--purple); transform: translateX(3px); }
+  .ns-card .title{ color: var(--purple-deep); font-weight:600; font-size:0.95rem; margin-bottom:3px; }
+  .ns-card .why{ color: var(--ink-dim); font-size:0.84rem; }
+
+  footer{ margin-top:60px; padding-top:24px; border-top:1px solid var(--line); font-family: var(--mono); font-size:0.78rem; color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="crumb reveal in"><a href="#">Blog</a> › Thought Leadership › AI Governance</div>
+
+  <header class="reveal in">
+    <span class="kicker">Thought Leadership</span>
+    <h1>AI Agents Are Non-Human Identities Now — Is Your Governance Model Ready?</h1>
+    <p class="lede">An agent that can initiate its own tool calls, at machine speed, unattended, isn't a script and isn't a user. It's a third category most identity programs never built a lane for — and the gap is showing.</p>
+    <div class="meta-bar">
+      <span class="chip">Estimated time <b>13 min</b></span>
+      <span class="chip">Category <b>perspective</b></span>
+      <span class="chip">Audience <b>platform &amp; security</b></span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- TREND -->
+    <section>
+      <span class="eyebrow">the trend</span>
+      <h2>Agents that act, not just agents that answer</h2>
+      <p>A year ago, most "AI in the loop" meant a model producing text a person then acted on. That's no longer the typical shape. Agents now call APIs, open pull requests, provision infrastructure, and query databases directly — continuously, at whatever pace the task requires, and largely outside the moment-by-moment visibility a human reviewer used to provide. The action isn't proposed anymore in most of these flows. It's taken.</p>
+      <p>That shift is exactly what turns "the agent" from a feature of your software into an identity your organization has to account for — something that authenticates, holds permissions, and acts on systems, the same three things true of any user or service account, just at a completely different tempo.</p>
+
+      <div class="def-grid">
+        <div class="def-card"><div class="term">Non-human identity (NHI)</div><p class="body">Any account or credential that authenticates and acts without a person directly driving each action — service accounts, bots, and now autonomous agents.</p></div>
+        <div class="def-card"><div class="term">Machine-speed action</div><p class="body">Volume and pace no human review cadence was designed for — hundreds of tool calls in the time a quarterly access review covers one line item.</p></div>
+        <div class="def-card"><div class="term">Visibility gap</div><p class="body">The distance between what an agent is authorized to do and what anyone can currently see it actually doing, in real time.</p></div>
+      </div>
+    </section>
+
+    <!-- WHY TRADITIONAL IAM DOESN'T FIT -->
+    <section>
+      <span class="eyebrow">analysis</span>
+      <h2>Why identity and access management wasn't built for this</h2>
+      <p>Traditional IAM has two well-worn shapes: a human identity, reviewed periodically, with access a person requests and a manager approves; and a static service account, provisioned once for a specific integration and rarely touched again. Both assume the actor's behavior is either slow enough for a human to review or narrow enough that its scope barely needs revisiting.</p>
+      <p>An agent breaks both assumptions simultaneously — it acts far faster than a human review cycle, but its behavior is broad and improvisational in a way a fixed-scope service account never was.</p>
+
+      <div class="tbl-wrap">
+        <table>
+          <tr><th></th><th>Human user</th><th>Static service account</th><th>Continuously-acting agent</th></tr>
+          <tr><td>Action frequency</td><td>Bursty, human-paced</td><td>Fixed, predictable pattern</td><td>Continuous, variable, often unattended</td></tr>
+          <tr><td>Credential lifetime</td><td>Long-lived, MFA-backed</td><td>Long-lived, rarely rotated</td><td>Should be short-lived and scoped per task</td></tr>
+          <tr><td>Review cadence</td><td>Periodic access review</td><td>Rare, often forgotten</td><td>Needs to be near real-time</td></tr>
+          <tr><td>Failure mode</td><td>One bad decision, one actor</td><td>One compromised integration</td><td>One bad decision, replicated at machine speed across every session</td></tr>
+        </table>
+      </div>
+
+      <div class="pull-quote">A permission that was safe to grant a person making one decision a day stops being safe the moment the same permission is exercised by something making a thousand.</div>
+    </section>
+
+    <!-- WHAT GOVERNING REQUIRES -->
+    <section>
+      <span class="eyebrow">what governing an agent actually means</span>
+      <h2>Three things a real agent-governance model requires</h2>
+      <div class="req-grid">
+        <div class="req-item">
+          <div class="req-num">1</div>
+          <div class="req-body"><div class="title">Scoped credentials</div><div class="desc">Not "the same API key the team has always used" — a credential narrowed to the specific task and session, ideally short-lived enough that a leaked one is worthless shortly after.</div></div>
+        </div>
+        <div class="req-item">
+          <div class="req-num">2</div>
+          <div class="req-body"><div class="title">Audit trails generated at the point of decision</div><div class="desc">Not reconstructed from what an agent produced afterward — a log collector can see what an agent did, but nothing about what it tried to do and was stopped from doing, because a blocked action leaves no output to collect.</div></div>
+        </div>
+        <div class="req-item">
+          <div class="req-num">3</div>
+          <div class="req-body"><div class="title">Revocability</div><div class="desc">The ability to cut off a specific agent identity's access immediately, without taking down the service account sixteen other things also depend on.</div></div>
+        </div>
+      </div>
+
+      <div class="quiz" data-quiz>
+        <span class="qlabel">Check your understanding</span>
+        <div class="qtext">Why can't a log collector that only reads an agent's output reconstruct a full audit trail?</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Logs are always encrypted and unreadable</div>
+        <div class="qopt" data-correct="true"><input type="radio" name="q1"> A blocked or denied action never produces output for a collector to find</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Collectors only work with human users, not agents</div>
+        <div class="qfeedback"></div>
+      </div>
+    </section>
+
+    <!-- MISCONCEPTION -->
+    <section>
+      <span class="eyebrow">common misconception</span>
+      <div class="callout">
+        <span class="tag">What people assume</span>
+        <p class="belief">"We already scope our service accounts down — an agent using one of those is basically already governed."</p>
+        <div class="reality-label">What's actually true</div>
+        <p>Scope alone answers "what could this identity theoretically do," not "what did it actually do today, and can we tell the difference between it acting normally and acting compromised." A quarterly review of a service account's permissions was never designed to catch an agent that made ten thousand decisions since the last time anyone looked. The gap isn't how narrow the grant is — it's that nothing is watching in the window between reviews, and an agent's whole operating tempo lives inside that window.</p>
+      </div>
+    </section>
+
+    <!-- INDUSTRY RESPONSE -->
+    <section>
+      <span class="eyebrow">one industry response</span>
+      <h2>Streaming policy decisions to the SIEM, not just outputs</h2>
+      <p>Docker's recent addition to AI Governance is a useful concrete example of what "governed" starts to look like in practice. Every policy evaluation an agent triggers — allowed, denied, or held for a human — generates a structured record at the moment the decision is made, and that record streams directly into whatever SIEM a security team already runs, alongside a searchable 90-day history.</p>
+      <p>The detail that matters most isn't the SIEM integration itself, familiar from a dozen other tools — it's capturing all three outcomes, not just the successful ones. A record of what an agent was allowed to do shows it's active. A record of what it was denied is the only way to know whether the controls around it are doing anything at all, and that record can only be produced at the enforcement point itself, never assembled afterward from logs of what the agent actually output.</p>
+
+      <div class="quiz" data-quiz>
+        <span class="qlabel">Check your understanding</span>
+        <div class="qtext">Why does it matter that a denial is captured at the enforcement point, not reconstructed later?</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> It doesn't — any logging system can find denials eventually</div>
+        <div class="qopt" data-correct="true"><input type="radio" name="q1"> The blocked action never ran, so it never produced anything a downstream collector could find</div>
+        <div class="qopt" data-correct="false"><input type="radio" name="q1"> Denials are always logged by the agent itself</div>
+        <div class="qfeedback"></div>
+      </div>
+    </section>
+
+    <!-- IMPLICATIONS -->
+    <section>
+      <span class="eyebrow">implications for platform and security teams</span>
+      <h2>What to actually change</h2>
+      <p>Treating agents as a distinct identity class, not an extension of an existing service account program, changes a handful of concrete decisions:</p>
+      <div class="req-grid">
+        <div class="req-item">
+          <div class="req-num">1</div>
+          <div class="req-body"><div class="title">Give agents their own identity lifecycle</div><div class="desc">Provisioned, scoped, and retired independently of any human user or shared service account they happen to run alongside.</div></div>
+        </div>
+        <div class="req-item">
+          <div class="req-num">2</div>
+          <div class="req-body"><div class="title">Move review cadence from periodic to continuous</div><div class="desc">A quarterly access review can't catch a pattern that formed and caused damage inside a single afternoon.</div></div>
+        </div>
+        <div class="req-item">
+          <div class="req-num">3</div>
+          <div class="req-body"><div class="title">Design for revocation, not just detection</div><div class="desc">A governance model that can only tell you something went wrong, without a fast path to cut that specific identity off, is half a control.</div></div>
+        </div>
+        <div class="req-item">
+          <div class="req-num">4</div>
+          <div class="req-body"><div class="title">Route agent policy events into existing security tooling</div><div class="desc">A separate dashboard no one checks is worse than no dashboard — the events need to land where the SOC is already looking.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL QUIZ -->
+    <section>
+      <span class="eyebrow">check what you've learned</span>
+      <h2>Four-question recap</h2>
+      <div class="fq-box">
+        <div class="fq-progress"><span id="fqPos">Q 1 / 4</span><span></span></div>
+        <div class="fq-bar"><div class="fq-bar-fill" id="fqBarFill"></div></div>
+        <div id="fqQuestion"></div>
+        <div class="fq-nav">
+          <button class="btn ghost" id="fqPrev" disabled>Back</button>
+          <button class="btn" id="fqNext">Next</button>
+        </div>
+        <div class="fq-result" id="fqResult">
+          <div class="fq-score" id="fqScoreFinal"></div>
+          <p id="fqScoreLabel"></p>
+          <button class="btn" id="fqRestart">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLASHCARDS -->
+    <section>
+      <span class="eyebrow">flashcards</span>
+      <h2>Click to reveal</h2>
+      <div class="fc-grid" id="fcGrid"></div>
+    </section>
+
+    <!-- NEXT STEPS -->
+    <section>
+      <span class="eyebrow">next steps</span>
+      <h2>Where to go from here</h2>
+      <div class="ns-grid">
+        <a class="ns-card" href="https://www.docker.com/blog/docker-ai-governance-audit-logs-now-where-your-security-team-already-works/" target="_blank" rel="noopener">
+          <div class="title">Docker AI Governance: Audit Logs ↗</div>
+          <div class="why">The full detail on the SIEM-streaming, three-outcome audit model referenced above.</div>
+        </a>
+        <a class="ns-card" href="https://www.docker.com/products/ai-governance/" target="_blank" rel="noopener">
+          <div class="title">Docker AI Governance product page ↗</div>
+          <div class="why">How centralized policy, propagation, and audit fit together as one governance layer.</div>
+        </a>
+        <a class="ns-card" href="https://docs.docker.com/ai/sandboxes/governance/audit/" target="_blank" rel="noopener">
+          <div class="title">AI Governance audit logs documentation ↗</div>
+          <div class="why">The structured event schema itself — what fields a policy decision record actually contains.</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>Blog · Thought Leadership · AI Governance</footer>
+</div>
+
+<script>
+(function(){
+  var revealEls = document.querySelectorAll('section');
+  revealEls.forEach(function(el){ el.classList.add('reveal'); });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  }, {threshold:0.08});
+  revealEls.forEach(function(el){ io.observe(el); });
+
+  document.querySelectorAll('[data-quiz]').forEach(function(quiz){
+    var opts = quiz.querySelectorAll('.qopt');
+    var fb = quiz.querySelector('.qfeedback');
+    opts.forEach(function(opt){
+      opt.addEventListener('click', function(){
+        var input = opt.querySelector('input'); input.checked = true;
+        opts.forEach(function(o){ o.classList.remove('correct','incorrect'); });
+        var isCorrect = opt.dataset.correct === 'true';
+        opt.classList.add(isCorrect ? 'correct' : 'incorrect');
+        if(!isCorrect){ opts.forEach(function(o){ if(o.dataset.correct==='true'){ o.classList.add('correct'); } }); }
+        fb.textContent = isCorrect ? "Right — a record has to be generated at the moment of decision, not assembled from what came out the other side." : "Not quite — think about what actually exists to be logged once an action never runs.";
+        fb.className = 'qfeedback show ' + (isCorrect ? 'ok' : 'no');
+      });
+    });
+  });
+
+  var fq = [
+    {q:"What breaks the traditional IAM assumption for agents?", opts:["Agents don't need credentials at all","Agents act faster than human review cycles and broader than fixed-scope service accounts","Agents only ever use human user accounts","IAM was already designed for this case"], correct:1},
+    {q:"What's the risk of a service account being 'already scoped down'?", opts:["Scope alone doesn't tell you what actually happened between reviews","Scoped accounts can't be used by agents","Scoping makes audit unnecessary","There is no risk — scope solves the whole problem"], correct:0},
+    {q:"In the Docker AI Governance example, why do all three outcomes (allowed, denied, held) matter?", opts:["Only allowed actions matter for security","Denied and held records are the only evidence controls are actually doing something","Held-for-review actions are logged elsewhere","Outcomes don't need to be distinguished"], correct:1},
+    {q:"What's the platform-team implication about review cadence?", opts:["Quarterly reviews are sufficient for agents","Review needs to move from periodic to near real-time","Agents don't need review at all","Annual reviews are safer than quarterly ones"], correct:1}
+  ];
+  var fqIndex = 0, fqAnswers = new Array(fq.length).fill(null);
+  function renderFq(){
+    var item = fq[fqIndex];
+    document.getElementById('fqPos').textContent = 'Q ' + (fqIndex+1) + ' / ' + fq.length;
+    document.getElementById('fqBarFill').style.width = (((fqIndex+1)/fq.length)*100) + '%';
+    var html = '<div class="qtext" style="margin-bottom:14px;">' + item.q + '</div>';
+    item.opts.forEach(function(opt,i){
+      var picked = fqAnswers[fqIndex]; var cls='';
+      if(picked !== null){ if(i===item.correct) cls=' correct'; else if(i===picked) cls=' incorrect'; }
+      html += '<div class="qopt'+cls+'" data-i="'+i+'"><input type="radio" name="fqopt" '+(picked===i?'checked':'')+'> '+opt+'</div>';
+    });
+    document.getElementById('fqQuestion').innerHTML = html;
+    document.getElementById('fqPrev').disabled = fqIndex === 0;
+    document.getElementById('fqNext').textContent = fqIndex === fq.length-1 ? 'Finish' : 'Next';
+    document.querySelectorAll('#fqQuestion .qopt').forEach(function(opt){
+      opt.addEventListener('click', function(){
+        if(fqAnswers[fqIndex] !== null) return;
+        fqAnswers[fqIndex] = parseInt(opt.dataset.i,10);
+        renderFq();
+      });
+    });
+  }
+  document.getElementById('fqNext').addEventListener('click', function(){
+    if(fqIndex < fq.length-1){ fqIndex++; renderFq(); }
+    else{
+      var score = fqAnswers.reduce(function(acc,a,i){ return acc + (a===fq[i].correct?1:0); },0);
+      document.getElementById('fqScoreFinal').textContent = score + ' / ' + fq.length;
+      document.getElementById('fqScoreLabel').textContent =
+        score === fq.length ? "Perfect — the governance gap is fully clear." :
+        score >= fq.length-1 ? "Almost — worth a quick re-read above." :
+        "Worth another pass through the analysis and requirements sections.";
+      document.getElementById('fqResult').classList.add('show');
+      document.getElementById('fqQuestion').style.display='none';
+      document.querySelector('.fq-nav').style.display='none';
+    }
+  });
+  document.getElementById('fqPrev').addEventListener('click', function(){ if(fqIndex>0){ fqIndex--; renderFq(); } });
+  document.getElementById('fqRestart').addEventListener('click', function(){
+    fqIndex=0; fqAnswers = new Array(fq.length).fill(null);
+    document.getElementById('fqResult').classList.remove('show');
+    document.getElementById('fqQuestion').style.display='';
+    document.querySelector('.fq-nav').style.display='';
+    renderFq();
+  });
+  renderFq();
+
+  var cards = [
+    {q:"What are the three requirements of real agent governance in this post?", a:"Scoped credentials, audit trails generated at the point of decision, and revocability."},
+    {q:"Why can't a periodic access review catch agent misbehavior in time?", a:"An agent can make thousands of decisions inside the window between two scheduled reviews."},
+    {q:"What's the difference between a human user and a continuously-acting agent, from an IAM standpoint?", a:"Action frequency and review cadence — humans act at human pace with periodic review; agents act continuously and need near real-time oversight."},
+    {q:"Why is a denied action harder to audit than an allowed one?", a:"An allowed action produces output a log collector can find later; a denied action never ran, so nothing downstream can reconstruct it."},
+    {q:"What does 'revocability' require that a shared service account often can't provide?", a:"The ability to cut off one specific agent identity's access without disrupting everything else using the same shared credential."}
+  ];
+  var fcGrid = document.getElementById('fcGrid');
+  cards.forEach(function(c){
+    var el = document.createElement('div');
+    el.className='flashcard'; el.tabIndex=0;
+    el.innerHTML = '<div class="fc-inner"><div class="fc-face fc-front">'+c.q+'<span class="fc-hint">click to flip</span></div><div class="fc-face fc-back">'+c.a+'</div></div>';
+    el.addEventListener('click', function(){ el.classList.toggle('flipped'); });
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.classList.toggle('flipped'); } });
+    fcGrid.appendChild(el);
+  });
+})();
+</script>
+</body>
+</html>
