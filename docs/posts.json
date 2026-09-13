@@ -25,5 +25,23 @@
   "tags": ["comparison", "docker", "governance", "security"],
   "readTime": "9 min",
   "difficulty": "intermediate"
+},
+  {
+  "slug": "beyond-ai-agents-docker-sandbox-use-cases",
+  "title": "Beyond AI Agents: Other Uses for Docker Sandboxes",
+  "date": "2026-09-14",
+  "description": "Docker Sandboxes were built for autonomous coding agents, but the same microVM isolation applies to malware analysis, untrusted third-party code, and ephemeral CI — with different network policy choices for each.",
+  "tags": ["use-cases", "docker", "microvm", "security"],
+  "readTime": "11 min",
+  "difficulty": "intermediate"
+},
+  {
+  "slug": "building-agentic-stack-docker-compose",
+  "title": "Building Your First Agentic Stack with Docker Compose",
+  "date": "2026-09-15",
+  "description": "A step-by-step tutorial on defining a model, an MCP Gateway, and a LangGraph agent together in one compose.yaml — and launching the whole stack with a single docker compose up.",
+  "tags": ["tutorial", "docker", "compose", "mcp", "ai-agents"],
+  "readTime": "14 min",
+  "difficulty": "intro–intermediate"
 }
 ]
