@@ -16,5 +16,14 @@
     "tags": ["deep-dive", "docker", "microvm", "security"],
     "readTime": "22 min",
     "difficulty": "advanced"
-  }
+  },
+  {
+  "slug": "docker-sandboxes-vs-ai-governance",
+  "title": "Docker Sandboxes vs Docker AI Governance: What Each One Actually Does",
+  "date": "2026-09-13",
+  "description": "Docker Sandboxes and Docker AI Governance solve different-scoped problems — per-agent isolation versus org-wide policy. A clear breakdown of when you need one, both, and what the kit format still can't do yet.",
+  "tags": ["comparison", "docker", "governance", "security"],
+  "readTime": "9 min",
+  "difficulty": "intermediate"
+}
 ]
